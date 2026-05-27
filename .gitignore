@@ -1,0 +1,10 @@
+# Derleme sonucu oluşan executable dosyalar
+game
+oyun
+*.out
+
+# Mac sistem dosyaları
+.DS_Store
+
+# VS Code ayar klasörleri
+.vscode/
