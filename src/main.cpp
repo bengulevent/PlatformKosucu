@@ -2,30 +2,30 @@
 #include "Player.hpp"
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode({800, 600}), "Academic Project - Platform Runner");
+    // 800x600 boyutunda oyun penceremizi açıyoruz
+    sf::RenderWindow window(sf::VideoMode(sf::Vector2u(800, 600)), "Platform Runner");
+    
+    // --- OYUNU 60 FPS'E SABİTLİYORUZ (HIZ PROBLEMİNİ ÇÖZEN SATIR) ---
+    window.setFramerateLimit(60);
 
-    // Karakterimizi oluşturuyoruz (Boyut: 50x50, Pozisyon: x=200, y=400)
-    Player player(sf::Vector2f(50.0f, 50.0f), sf::Vector2f(200.0f, 400.0f));
+    // Karakterimizi 50x50 boyutuyla, ekranın ortasında (200, 100) başlatıyoruz
+    Player player(sf::Vector2f(50.0f, 50.0f), sf::Vector2f(200.0f, 100.0f));
 
+    // Oyun döngüsü
     while (window.isOpen()) {
-        // SFML 3.0 Modern Event Döngüsü
-        while (const std::optional<sf::Event> event = window.pollEvent()) {
+        while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) {
                 window.close();
             }
         }
 
-        // 1. Girdileri Kontrol Et ve Güncelle
+        // Güncelleme (Hareket ve Fizik)
         player.update();
 
-        // 2. Ekranı Temizle
-        window.clear(sf::Color::Black);
-
-        // 3. Objeleri Çiz
-        player.draw(window);
-
-        // 4. Ekranda Göster
-        window.display();
+        // Çizim Aşaması
+        window.clear(sf::Color::Black); // Arka plan siyah
+        player.draw(window);            // Karakteri çiz
+        window.display();               // Ekrana yansıt
     }
 
     return 0;
