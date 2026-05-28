@@ -4,47 +4,47 @@ Player::Player(sf::Vector2f size, sf::Vector2f position) {
     body.setSize(size);
     body.setFillColor(sf::Color::Cyan);
     body.setPosition(position);
-    speed = 4.0f;          // Sağa sola pürüzsüz hareket hızı
+    speed = 4.0f;          // Yatay hız
     
     velocityY = 0.0f;
-    gravity = 0.6f;        // Karakterin pürüzsüz düşmesi için ideal ivme
-    jumpSpeed = -14.0f;    // 60 FPS'te belirgin bir zıplama için ideal güç
+    gravity = 0.6f;        // Yer çekimi
+    jumpSpeed = -13.0f;    // Zıplama gücü
     isGrounded = false;
 }
 
 void Player::update() {
-    // Sol ve Sağ Hareket
+    // Tüm hareketleri bu x ve y değerlerinde toplayacağız
+    float moveX = 0.0f;
+
+    // Yatay Hareket Kontrolleri
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A)) {
-        body.move(sf::Vector2f(-speed, 0.0f));
+        moveX = -speed;
     }
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D)) {
-        body.move(sf::Vector2f(speed, 0.0f));
+        moveX = speed;
     }
 
-    // --- GARANTİLİ YER ÇEKİMİ VE ZEMİN KONTROLÜ ---
-    // Eğer karakter pencerenin alt sınırına (örneğin y = 500) ulaşmadıysa düşsün
-    if (body.getPosition().y < 500.0f) {
-        velocityY += gravity;
-        // Çok küçük bir toleransla havada olup olmadığını esnetiyoruz
-        if (body.getPosition().y < 498.0f) {
-            isGrounded = false;
-        }
-    } else {
-        // Karakter zemine tam otursun
-        body.setPosition(sf::Vector2f(body.getPosition().x, 500.0f));
-        velocityY = 0.0f;
-        isGrounded = true; // Karakter kesinlikle yerde!
-    }
-
-    // --- ZIPLAMA KONTROLÜ ---
-    // Karakter kesin olarak yerdeyse Space algılansın
+    // Zıplama Kontrolü
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space) && isGrounded) {
         velocityY = jumpSpeed;
-        isGrounded = false; // Zıpladığı an yer bağını koparıyoruz
+        isGrounded = false;
     }
 
-    // Hesaplanan dikey hareketi uyguluyoruz
-    body.move(sf::Vector2f(0.0f, velocityY));
+    // Yer çekimini dikey hıza sürekli ekle
+    velocityY += gravity;
+
+    // Karakteri TEK BİR SEFERDE hem X hem Y ekseninde hareket ettiriyoruz
+    body.move(sf::Vector2f(moveX, velocityY));
+
+    // --- ZEMİN ÇARPIŞMA KONTROLÜ (Kilit Nokta) ---
+    // Eğer karakter yerin altına girdiyse anında zemine sabitle
+    if (body.getPosition().y >= 500.0f) {
+        body.setPosition(sf::Vector2f(body.getPosition().x, 500.0f));
+        velocityY = 0.0f;
+        isGrounded = true;
+    } else {
+        isGrounded = false;
+    }
 }
 
 void Player::draw(sf::RenderWindow& window) {
