@@ -8,7 +8,7 @@ Player::Player(sf::Vector2f size, sf::Vector2f position) {
     
     velocityY = 0.0f;
     gravity = 0.6f;        // Yer çekimi
-    jumpSpeed = -13.0f;    // Zıplama gücü
+    jumpSpeed = -16.0f;    // Zıplama gücü
     isGrounded = false;
 }
 
