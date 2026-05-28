@@ -6,17 +6,30 @@ int main() {
     sf::RenderWindow window(sf::VideoMode(sf::Vector2u(800, 600)), "Platform Runner");
     window.setFramerateLimit(60); 
 
-    // Önce Font Yüklemesi
+    // Font Yüklemesi
     sf::Font font;
     if (!font.openFromFile("/System/Library/Fonts/Supplemental/Arial.ttf")) {
         return -1; 
     }
 
-    // Yazı Objesi Tanımlaması
+    // Skor Yazısı
     sf::Text scoreText(font);
-    scoreText.setCharacterSize(40);            // Yazıyı iyice büyüttüm rahat gör diye kanki
+    scoreText.setCharacterSize(30);            
     scoreText.setFillColor(sf::Color::White);  
-    scoreText.setPosition(sf::Vector2f(30.0f, 30.0f)); 
+    scoreText.setPosition(sf::Vector2f(20.0f, 20.0f)); 
+
+    // --- YENİ: CAN YAZISI ---
+    sf::Text healthText(font);
+    healthText.setCharacterSize(30);            
+    healthText.setFillColor(sf::Color::Green);   
+    healthText.setPosition(sf::Vector2f(20.0f, 60.0f)); 
+
+    // --- YENİ: GAME OVER YAZISI ---
+    sf::Text gameOverText(font);
+    gameOverText.setCharacterSize(50);
+    gameOverText.setFillColor(sf::Color::Red);
+    gameOverText.setString("GAME OVER\nYeniden baslamak icin R'ye bas");
+    gameOverText.setPosition(sf::Vector2f(100.0f, 220.0f));
 
     // Zemin ve Karakter
     sf::RectangleShape ground(sf::Vector2f(800.0f, 50.0f));
@@ -31,8 +44,10 @@ int main() {
     obstacle.setPosition(sf::Vector2f(850.0f, 510.0f));
     float obstacleSpeed = 5.0f;
 
-    // Sadece temiz bir skor değişkeni bırakıyoruz
     int score = 0;
+    int health = 5;       // Başlangıçta 5 can hakkı
+    bool isPassed = false; 
+    bool isGameOver = false; 
 
     // Oyun Döngüsü
     while (window.isOpen()) {
@@ -42,34 +57,63 @@ int main() {
             }
         }
 
-        player.update();
-
-        // Engel Hareketi (Her karede sola kaysın)
-        obstacle.move(sf::Vector2f(-obstacleSpeed, 0.0f));
-
-       
-        // Kırmızı kutu sol sınırdan tamamen çıktığı mikrosaniyede:
-        if (obstacle.getPosition().x < -40.0f) {
-            score++; // Skoru tertemiz 1 artırıyoruz (Çakışma ihtimali sıfır)
+        // --- GAME OVER KONTROLÜ ---
+        if (isGameOver) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R)) {
+                // Oyunu sıfırla
+                score = 0;
+                health = 5;
+                obstacleSpeed = 5.0f;
+                obstacle.setPosition(sf::Vector2f(850.0f, 510.0f));
+                player.resetPosition(sf::Vector2f(200.0f, 100.0f));
+                isPassed = false;
+                isGameOver = false;
+            }
             
-            // Engeli sağ tarafa geri ışınla
-            obstacle.setPosition(sf::Vector2f(850.0f, 510.0f));
-            obstacleSpeed += 0.3f; // Oyun her skorda biraz hızlansın
+            window.clear(sf::Color::Black);
+            window.draw(gameOverText);
+            window.display();
+            continue; 
         }
 
-        // Çarpışma Kontrolü
+        player.update();
+
+        // Engel Hareketi
+        obstacle.move(sf::Vector2f(-obstacleSpeed, 0.0f));
+
+        // Skor Kontrolü
+        if (obstacle.getPosition().x < 200.0f && !isPassed) {
+            score++;           
+            isPassed = true;   
+        }
+
+        if (obstacle.getPosition().x < -40.0f) {
+            obstacle.setPosition(sf::Vector2f(850.0f, 510.0f));
+            obstacleSpeed += 0.2f; 
+            isPassed = false;  
+        }
+
+        // Çarpışma Kontrolü (Can Azaltma)
         sf::FloatRect playerBounds = player.getBounds();
         sf::FloatRect obstacleBounds = obstacle.getGlobalBounds();
 
         if (playerBounds.findIntersection(obstacleBounds).has_value()) {
+            health--; // Her çarpmada 1 can düşür
             player.resetPosition(sf::Vector2f(200.0f, 100.0f)); 
             obstacle.setPosition(sf::Vector2f(850.0f, 510.0f)); 
-            obstacleSpeed = 5.0f; 
-            score = 0; // Yanınca skoru sıfırla
+            isPassed = false;
+
+            if (health <= 0) {
+                isGameOver = true; // Canlar bitince oyunu dondur
+            }
         }
 
-        // Metni hafızada güncelle
+        // Yazıları Güncelle
         scoreText.setString("Skor: " + std::to_string(score));
+        healthText.setString("Can: " + std::to_string(health)); 
+
+        if (health <= 2) healthText.setFillColor(sf::Color::Red);
+        else healthText.setFillColor(sf::Color::Green);
 
         // Çizim Aşaması
         window.clear(sf::Color::Black);
@@ -77,7 +121,8 @@ int main() {
         window.draw(ground);            
         window.draw(obstacle);          
         player.draw(window);            
-        window.draw(scoreText); // Skoru çiz
+        window.draw(scoreText); 
+        window.draw(healthText); 
         
         window.display();               
     }
