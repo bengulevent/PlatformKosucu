@@ -13,7 +13,7 @@ int main() {
     // Karakter Tanımlaması
     Player player(sf::Vector2f(50.0f, 50.0f), sf::Vector2f(200.0f, 100.0f));
 
-    // --- SENKRONİZE ENGEL TANIMLAMASI ---
+    // Engel Tanımlaması
     sf::RectangleShape obstacle(sf::Vector2f(40.0f, 40.0f));
     obstacle.setFillColor(sf::Color::Red);
     obstacle.setPosition(sf::Vector2f(850.0f, 510.0f));
@@ -27,24 +27,35 @@ int main() {
             }
         }
 
-        // --- TÜM GÜNCELLEMELER ARKA ARKAYA SENKRONİZE ---
+        // Karakter Hareketi
         player.update();
 
         // Engel Hareketi
         obstacle.move(sf::Vector2f(-obstacleSpeed, 0.0f));
         if (obstacle.getPosition().x < -40.0f) {
             obstacle.setPosition(sf::Vector2f(850.0f, 510.0f));
-            obstacleSpeed += 0.2f; // Zorluk artışı
+            obstacleSpeed += 0.2f; 
         }
 
-        // --- ÇIZIM AŞAMASI (TAM SENKRON) ---
+        // --- ARADIĞIMIZ ÇARPIŞMA BLOĞU BURASI KANKİ ---
+        sf::FloatRect playerBounds = player.getBounds();
+        sf::FloatRect obstacleBounds = obstacle.getGlobalBounds();
+
+        if (playerBounds.findIntersection(obstacleBounds).has_value()) {
+            player.resetPosition(sf::Vector2f(200.0f, 100.0f)); // Başa ışınla
+            obstacle.setPosition(sf::Vector2f(850.0f, 510.0f)); // Engeli sıfırla
+            obstacleSpeed = 5.0f; 
+        }
+        // ----------------------------------------------
+
+        // Çizim Aşaması
         window.clear(sf::Color::Black);
         
-        window.draw(ground);            // 1. En arka katman zemin
-        window.draw(obstacle);          // 2. Engel
-        player.draw(window);            // 3. En ön katman karakter
+        window.draw(ground);            
+        window.draw(obstacle);          
+        player.draw(window);            
         
-        window.display();               // Ekran kartına tek seferde gönder
+        window.display();               
     }
 
     return 0;
