@@ -2,20 +2,24 @@
 #include "Player.hpp"
 
 int main() {
-    // 800x600 boyutunda oyun penceremizi açıyoruz
-    sf::RenderWindow window(sf::VideoMode(sf::VideoMode::getDesktopMode().bitsPerPixel == 32 ? sf::Vector2u(800, 600) : sf::Vector2u(800, 600)), "Platform Runner");
-    
-    // Oyun hızını 60 FPS'e sabitliyoruz
-    window.setFramerateLimit(60);
+    sf::RenderWindow window(sf::VideoMode(sf::Vector2u(800, 600)), "Platform Runner");
+    window.setFramerateLimit(60); // 60 FPS Sabitleme
 
-    // Karakter ve Zemin objeleri
+    // Zemin Tanımlaması
     sf::RectangleShape ground(sf::Vector2f(800.0f, 50.0f));
-    ground.setFillColor(sf::Color(50, 50, 50)); // Koyu Gri
+    ground.setFillColor(sf::Color(50, 50, 50));
     ground.setPosition(sf::Vector2f(0.0f, 550.0f));
 
+    // Karakter Tanımlaması
     Player player(sf::Vector2f(50.0f, 50.0f), sf::Vector2f(200.0f, 100.0f));
 
-    // Oyun döngüsü
+    // --- SENKRONİZE ENGEL TANIMLAMASI ---
+    sf::RectangleShape obstacle(sf::Vector2f(40.0f, 40.0f));
+    obstacle.setFillColor(sf::Color::Red);
+    obstacle.setPosition(sf::Vector2f(850.0f, 510.0f));
+    float obstacleSpeed = 5.0f;
+
+    // Oyun Döngüsü
     while (window.isOpen()) {
         while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) {
@@ -23,15 +27,24 @@ int main() {
             }
         }
 
-        // Güncelleme (Fizik ve Hareket)
+        // --- TÜM GÜNCELLEMELER ARKA ARKAYA SENKRONİZE ---
         player.update();
 
-        // --- ÇİZİM AŞAMASI (Buraya Dikkat Kanki) ---
-        window.clear(sf::Color::Black); // Her karede ekranı siyaha boyayıp temizler (İz kalmasını engeller)
+        // Engel Hareketi
+        obstacle.move(sf::Vector2f(-obstacleSpeed, 0.0f));
+        if (obstacle.getPosition().x < -40.0f) {
+            obstacle.setPosition(sf::Vector2f(850.0f, 510.0f));
+            obstacleSpeed += 0.2f; // Zorluk artışı
+        }
+
+        // --- ÇIZIM AŞAMASI (TAM SENKRON) ---
+        window.clear(sf::Color::Black);
         
-        window.draw(ground);            // Önce zemini çiz
-        player.draw(window);            // Sonra üstüne karakteri çiz
-        window.display();               // Hepsini ekrana yansıt
+        window.draw(ground);            // 1. En arka katman zemin
+        window.draw(obstacle);          // 2. Engel
+        player.draw(window);            // 3. En ön katman karakter
+        
+        window.display();               // Ekran kartına tek seferde gönder
     }
 
     return 0;
