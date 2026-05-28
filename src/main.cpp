@@ -308,17 +308,21 @@ int main() {
                 else if (enemies[i].shape.getPosition().y > enemies[i].startY + 60.0f) enemies[i].speedY = -std::abs(enemies[i].speedY);
             } 
         }
-// 60 PUAN BARAJI İLE BÖLÜM GEÇİŞİ
         showWarning = false; 
         if (playerBounds.findIntersection(levelGate.getGlobalBounds()).has_value()) {
+            // Sadece bu bölüm içinde toplanan puanı hesapla
             int scoreCollectedInThisLevel = score - levelStartScore;
 
             if (scoreCollectedInThisLevel >= 60) { 
                 if (currentLevel < 3) {
                     currentLevel++; 
-                    levelStartScore = score; 
+                    
+                
+                    score = 0;           // Mevcut ekrandaki puanı sıfırla
+                    levelStartScore = 0; // Bölüm başı referans puanını da sıfırla
+                    
                     generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate);
-                    player.resetPosition(sf::Vector2f(100.0f, 400.0f));
+                    player.resetPosition(sf::Vector2f(100.0f, 400.0f)); 
                     platformJumpVelocity = 0.0f;
                     bullets.clear();
                 } else {
@@ -328,8 +332,6 @@ int main() {
                 showWarning = true; 
             }
         }
-
-  
         for (const auto& platform : platforms) {
             sf::FloatRect platBounds = platform.getGlobalBounds();
             if (playerBounds.findIntersection(platBounds).has_value()) {
