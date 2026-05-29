@@ -4,6 +4,8 @@
 #include <vector> 
 #include <cmath>
 #include <iostream>
+#include <cstdlib> // Konfetilerin rastgele konum ve renkleri için
+#include <ctime>
 
 // --- OYUN NESNELERİNİN YAPILARI (STRUCTS) ---
 
@@ -23,6 +25,14 @@ struct GoldCoin {
     sf::Sprite* sprite; // Bellek hatası vermemesi için sprite nesnesini pointer (işaretçi) olarak tutuyoruz
     sf::FloatRect bounds; // Altının ekrandaki çarpışma kutusu koordinatları
     bool isCollected;   // Oyuncu altını aldı mı almadı mı kontrolü
+};
+
+// --- RETRO KAZANMA EKRANI İÇİN KONFETİ YAPISI ---
+struct Confetti {
+    sf::RectangleShape shape;
+    float speedX;
+    float speedY;
+    float rotationSpeed;
 };
 
 // --- BÖLÜM TASARIM MOTORU ---
@@ -154,7 +164,7 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         coins.push_back(coin);
     }
 
-    // --- BAYRAĞI DOĞRUDAN EN ALTTAKİ ANA ZEMİNE (550.0f) SABİTLEME ---
+    // --- BAYRAĞI EN ALTTAKİ ANA ZEMİNE (550.0f) SABİTLEME ---
     sf::FloatRect gateBounds = levelGate.getLocalBounds();
     levelGate.setOrigin(sf::Vector2f(gateBounds.size.x / 2.0f, gateBounds.size.y)); 
     levelGate.setPosition(sf::Vector2f(platforms.back().getPosition().x + 280.0f, 550.0f));
@@ -162,6 +172,8 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
 
 // --- ANA OYUN MOTORU ---
 int main() {
+    std::srand(static_cast<unsigned int>(std::time(nullptr))); // Konfetiler için random seed
+
     sf::RenderWindow window(sf::VideoMode(sf::Vector2u(800, 600)), "Platform Kosucu", sf::Style::Titlebar | sf::Style::Close);
     window.setFramerateLimit(60); 
 
@@ -194,6 +206,14 @@ int main() {
         goldTexture.loadFromFile("../assets/gold.png");
     }
 
+    // --- KUPA GÖRSELİ (CUP.PNG) YÜKLEMESİ ---
+    sf::Texture cupTexture;
+    if (!cupTexture.loadFromFile("assets/cup.png")) {
+        cupTexture.loadFromFile("../assets/cup.png");
+    }
+    sf::Sprite cupSprite(cupTexture);
+    cupSprite.setScale(sf::Vector2f(0.40f, 0.40f)); // Kupa tam altlarında daha BÜYÜK ve ihtişamlı durması için büyütüldü
+
     // --- BAYRAK GÖRSELİ (FLAG.PNG) YÜKLEMESİ ---
     sf::Texture flagTexture;
     if (!flagTexture.loadFromFile("assets/flag.png")) {
@@ -215,16 +235,36 @@ int main() {
     centerText.setFillColor(sf::Color::Red);
     centerText.setStyle(sf::Text::Bold);
 
-    // --- KODDA AYARLADIĞIMIZ YENİ KOYU LACİVERT UYARI YAZISI ---
+    // --- KAZANMA METİNLERİ SEÇİMİ (KOYU SARI TONU) ---
+    sf::Color darkYellow(204, 153, 0); 
+
+    sf::Text winText1(font);
+    winText1.setCharacterSize(46);
+    winText1.setFillColor(darkYellow);
+    winText1.setStyle(sf::Text::Bold);
+    winText1.setString("TEBRIKLER!!");
+
+    sf::Text winText2(font);
+    winText2.setCharacterSize(34);
+    winText2.setFillColor(darkYellow);
+    winText2.setStyle(sf::Text::Bold);
+    winText2.setString("oyunu kazandiniz <33");
+
+    // Ekran ortası koyu lacivert uyarı yazısı
+    sf::Color darkNavyBlue(0, 0, 102);
     sf::Text warningText(font);
     warningText.setCharacterSize(32);           
-    warningText.setFillColor(sf::Color(0, 0, 102)); // İsteğin üzerine koyu lacivert (Dark Navy Blue) yapıldı
-    warningText.setStyle(sf::Text::Bold);       // Kalın (Bold) yapısı korundu
+    warningText.setFillColor(darkNavyBlue); 
+    warningText.setStyle(sf::Text::Bold);       
     warningText.setString("KAPI ICIN 60 PUAN GEREKLI!");
 
     sf::RectangleShape ground(sf::Vector2f(5000.0f, 50.0f));
     ground.setFillColor(sf::Color(100, 100, 100));
     ground.setPosition(sf::Vector2f(0.0f, 550.0f));
+
+    // --- SOFT SARI KAZANMA ARKA PLANI ---
+    sf::RectangleShape softYellowBg(sf::Vector2f(800.0f, 600.0f));
+    softYellowBg.setFillColor(sf::Color(255, 255, 204)); // Tatlı soft sarı tonu
 
     sf::Texture bgTexture;
     bool hasBg = bgTexture.loadFromFile("assets/sunset_cloud.png");
@@ -243,6 +283,16 @@ int main() {
     std::vector<sf::RectangleShape> platforms;
     std::vector<CustomEnemy> enemies;
     std::vector<GoldCoin> coins; 
+
+    // --- KONFETİ LİSTESİ VE RENKLERİ ---
+    std::vector<Confetti> confettis;
+    std::vector<sf::Color> confettiColors = {
+        sf::Color(255, 105, 180), // Pembe
+        sf::Color(0, 255, 255),   // Turkuaz / Camgöbeği
+        sf::Color(255, 215, 0),   // Canlı Sarı
+        sf::Color(50, 205, 50),   // Yeşil
+        sf::Color(255, 69, 0)     // Turuncu
+    };
 
     int currentLevel = 1;
     generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture);
@@ -276,11 +326,64 @@ int main() {
             continue; 
         }
 
+        // --- ÖZELLEŞTİRİLMİŞ RETRO KAZANMA EKRANI RENDERI VE KONFETİ SİMÜLASYONU ---
         if (isGameWon) {
-            centerText.setString("TEBRIKLER! OYUNU KAZANDINIZ.");
-            centerText.setPosition(sf::Vector2f(camera.getCenter().x - 250.0f, 250.0f));
-            window.clear(sf::Color::Black);
-            window.draw(centerText);
+            // Dinamik konfeti üretimi (Ekran kalabalık değilse yeni konfetiler saç)
+            if (confettis.size() < 120) {
+                Confetti c;
+                c.shape.setSize(sf::Vector2f(8.0f, 8.0f)); // Retro pikselli küçük kareler
+                c.shape.setFillColor(confettiColors[std::rand() % confettiColors.size()]);
+                c.shape.setOrigin(sf::Vector2f(4.0f, 4.0f));
+                // Ekranın üstünde rastgele yatay konumlarda başlasın
+                c.shape.setPosition(sf::Vector2f(static_cast<float>(std::rand() % 800), static_cast<float>(-(std::rand() % 40))));
+                c.speedX = static_cast<float>((std::rand() % 40) - 20) / 10.0f; // Sola sağa hafif salınım
+                c.speedY = static_cast<float>((std::rand() % 30) + 20) / 10.0f;  // Aşağı süzülme hızı
+                c.rotationSpeed = static_cast<float>((std::rand() % 10) - 5);    // Kendi etrafında dönme
+                confettis.push_back(c);
+            }
+
+            // Konfetilerin hareket ettirilmesi güncellemesi
+            for (auto& c : confettis) {
+                c.shape.move(sf::Vector2f(c.speedX, c.speedY));
+                c.shape.rotate(sf::Angle(sf::degrees(c.rotationSpeed)));
+                // Ekranın altına düşen konfeti parçalarını tekrar yukarıya ışınla (Sonsuz döngü)
+                if (c.shape.getPosition().y > 600.0f) {
+                    c.shape.setPosition(sf::Vector2f(static_cast<float>(std::rand() % 800), -10.0f));
+                    c.speedY = static_cast<float>((std::rand() % 30) + 20) / 10.0f;
+                }
+            }
+
+            // Kamerayı oyun sonu ekranına sabitlemek için default görünümü geri alıyoruz
+            window.setView(window.getDefaultView()); 
+            window.clear();
+            
+            // 1. Soft Sarı Arka Planı Çiz
+            window.draw(softYellowBg);
+
+            // 2. Metinlerin Boyut Hesaplamaları ve Ortalanması
+            sf::FloatRect bounds1 = winText1.getLocalBounds();
+            winText1.setOrigin(sf::Vector2f(bounds1.size.x / 2.0f, bounds1.size.y / 2.0f));
+            winText1.setPosition(sf::Vector2f(400.0f, 110.0f));
+
+            sf::FloatRect bounds2 = winText2.getLocalBounds();
+            winText2.setOrigin(sf::Vector2f(bounds2.size.x / 2.0f, bounds2.size.y / 2.0f));
+            winText2.setPosition(sf::Vector2f(400.0f, 180.0f));
+
+            // 3. Kupayı Yazıların Altına Tam Ortala (Büyütülmüş Yeni Boyutla)
+            sf::FloatRect cupBounds = cupSprite.getLocalBounds();
+            cupSprite.setOrigin(sf::Vector2f(cupBounds.size.x / 2.0f, cupBounds.size.y / 2.0f));
+            cupSprite.setPosition(sf::Vector2f(400.0f, 390.0f));
+
+            // Ekrana basma sırası
+            window.draw(winText1);
+            window.draw(winText2);
+            window.draw(cupSprite);
+            
+            // Konfetileri kupanın ve yazıların hem arkasına hem önüne dağılması için en son çiziyoruz
+            for (const auto& c : confettis) {
+                window.draw(c.shape);
+            }
+            
             window.display();
             continue;
         }
@@ -361,7 +464,7 @@ int main() {
                     isGameWon = true; 
                 }
             } else {
-                showWarning = true; // Puan yetersizken bayrağa dokunulursa uyarı aktifleşir
+                showWarning = true; 
             }
         }
 
@@ -501,7 +604,6 @@ int main() {
 
         // --- UYARI YAZISINI EKRANIN TAM ORTASINA DİNAMİK OLARAK BAĞLAMA ---
         if (showWarning) {
-            // Yazının kameranın anlık merkezine göre tam ortaya gelmesini sağlıyoruz
             warningText.setPosition(sf::Vector2f(camera.getCenter().x - 240.0f, 260.0f));
             window.draw(warningText);
         }
@@ -520,6 +622,7 @@ int main() {
         window.display();           
     }
 
+    // Temizlik
     for (auto& c : coins) {
         delete c.sprite;
     }
