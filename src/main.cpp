@@ -25,7 +25,7 @@ struct GoldCoin {
     bool isCollected;   // Oyuncu altını aldı mı almadı mı kontrolü
 };
 
-// --- KADEMELİ OLARAK ZORLAŞTIRILAN VE 3. LEVELİ UZATILAN BÖLÜM MOTORU ---
+// --- BÖLÜM TASARIM MOTORU ---
 void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, std::vector<CustomEnemy>& enemies, std::vector<GoldCoin>& coins, sf::Sprite& levelGate, const sf::Texture& goldTexture) {
     
     // Hafıza sızıntısı (memory leak) olmasın diye bir önceki bölümden kalan altın pointer'larını bellekten temizliyoruz
@@ -154,10 +154,9 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         coins.push_back(coin);
     }
 
-    // --- BAYRAĞI ZEMİNDE BİRAZ DAHA İLERİYE ALDIĞIMIZ SATIR ---
+    // --- BAYRAĞI DOĞRUDAN EN ALTTAKİ ANA ZEMİNE (550.0f) SABİTLEME ---
     sf::FloatRect gateBounds = levelGate.getLocalBounds();
     levelGate.setOrigin(sf::Vector2f(gateBounds.size.x / 2.0f, gateBounds.size.y)); 
-    // Kanka bayrak platformun tam altında kalıp basık durmasın diye ofseti +220f yerine +280f yaptık
     levelGate.setPosition(sf::Vector2f(platforms.back().getPosition().x + 280.0f, 550.0f));
 }
 
@@ -215,6 +214,13 @@ int main() {
     centerText.setCharacterSize(42);
     centerText.setFillColor(sf::Color::Red);
     centerText.setStyle(sf::Text::Bold);
+
+    // --- KODDA AYARLADIĞIMIZ YENİ KOYU LACİVERT UYARI YAZISI ---
+    sf::Text warningText(font);
+    warningText.setCharacterSize(32);           
+    warningText.setFillColor(sf::Color(0, 0, 102)); // İsteğin üzerine koyu lacivert (Dark Navy Blue) yapıldı
+    warningText.setStyle(sf::Text::Bold);       // Kalın (Bold) yapısı korundu
+    warningText.setString("KAPI ICIN 60 PUAN GEREKLI!");
 
     sf::RectangleShape ground(sf::Vector2f(5000.0f, 50.0f));
     ground.setFillColor(sf::Color(100, 100, 100));
@@ -355,7 +361,7 @@ int main() {
                     isGameWon = true; 
                 }
             } else {
-                showWarning = true; 
+                showWarning = true; // Puan yetersizken bayrağa dokunulursa uyarı aktifleşir
             }
         }
 
@@ -467,8 +473,6 @@ int main() {
         std::string uiStr = "LEVEL: " + std::to_string(currentLevel) + "\n" +
                             "SCORE: " + std::to_string(score);
         
-        if (showWarning) uiStr += "\n[KAPI ICIN 60 PUAN GEREKLI!]";
-        
         uiText.setString(uiStr);
         float uiBaseX = camera.getCenter().x - 380.0f;
         float uiBaseY = 20.0f;
@@ -482,7 +486,7 @@ int main() {
             window.draw(bgSprite2);
         }   
         window.draw(ground);            
-        window.draw(levelGate); // Bayrağı çizdiriyoruz
+        window.draw(levelGate); 
         
         for (const auto& enemy : enemies) window.draw(enemy.shape);
         for (const auto& b : bullets) window.draw(b);
@@ -494,6 +498,13 @@ int main() {
 
         player.draw(window);            
         window.draw(uiText); 
+
+        // --- UYARI YAZISINI EKRANIN TAM ORTASINA DİNAMİK OLARAK BAĞLAMA ---
+        if (showWarning) {
+            // Yazının kameranın anlık merkezine göre tam ortaya gelmesini sağlıyoruz
+            warningText.setPosition(sf::Vector2f(camera.getCenter().x - 240.0f, 260.0f));
+            window.draw(warningText);
+        }
 
         // --- SCORE ALTINDAKİ RETRO KALP SIRALAMASI ---
         if (hasHeartImg) {
