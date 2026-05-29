@@ -26,7 +26,7 @@ struct GoldCoin {
 };
 
 // --- KADEMELİ OLARAK ZORLAŞTIRILAN VE 3. LEVELİ UZATILAN BÖLÜM MOTORU ---
-void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, std::vector<CustomEnemy>& enemies, std::vector<GoldCoin>& coins, sf::RectangleShape& levelGate, const sf::Texture& goldTexture) {
+void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, std::vector<CustomEnemy>& enemies, std::vector<GoldCoin>& coins, sf::Sprite& levelGate, const sf::Texture& goldTexture) {
     
     // Hafıza sızıntısı (memory leak) olmasın diye bir önceki bölümden kalan altın pointer'larını bellekten temizliyoruz
     for (auto& c : coins) {
@@ -96,11 +96,10 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
     } 
     // --- LEVEL 3: UZATILMIŞ VE ZORLAŞTIRILMIŞ FİNAL (5 Canavar!) ---
     else if (level == 3) {
-        // Platform listesini uzattık, artık yol çok daha uzun!
         std::vector<sf::Vector2f> platPositions = {
             {150.0f, 450.0f}, {320.0f, 360.0f}, {500.0f, 420.0f},
             {700.0f, 350.0f}, {900.0f, 440.0f}, {1100.0f, 380.0f},
-            {1300.0f, 460.0f}, {1500.0f, 400.0f} // Ekstra platformlar eklenerek harita uzatıldı
+            {1300.0f, 460.0f}, {1500.0f, 400.0f} 
         };
         for (const auto& pos : platPositions) {
             sf::RectangleShape plat(sf::Vector2f(110.0f, 15.0f)); 
@@ -140,11 +139,11 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         enemies.push_back(e5);
     }
 
-    // --- ÖZELLEŞTİRİLMİŞ ALTINLARI PLATFORMLARA SIRALAMA (0.09f BOYUTUYLA) ---
+    // --- ÖZELLEŞTİRİLMİŞ ALTINLARI HARİTAYA DİZME ---
     for (const auto& plat : platforms) {
         GoldCoin coin;
         coin.sprite = new sf::Sprite(goldTexture); 
-        coin.sprite->setScale(sf::Vector2f(0.09f, 0.09f)); // İstediğin o şık ideal pikselli altın boyutu
+        coin.sprite->setScale(sf::Vector2f(0.09f, 0.09f)); 
         
         sf::FloatRect coinBounds = coin.sprite->getLocalBounds();
         coin.sprite->setOrigin(sf::Vector2f(coinBounds.size.x / 2.0f, coinBounds.size.y / 2.0f));
@@ -155,8 +154,11 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         coins.push_back(coin);
     }
 
-    // Geçiş kapısı her zaman uzayan haritanın en son platformunun ilerisinde nizamlıca belirir
-    levelGate.setPosition(sf::Vector2f(platforms.back().getPosition().x + 220.0f, 400.0f));
+    // --- BAYRAĞI ZEMİNDE BİRAZ DAHA İLERİYE ALDIĞIMIZ SATIR ---
+    sf::FloatRect gateBounds = levelGate.getLocalBounds();
+    levelGate.setOrigin(sf::Vector2f(gateBounds.size.x / 2.0f, gateBounds.size.y)); 
+    // Kanka bayrak platformun tam altında kalıp basık durmasın diye ofseti +220f yerine +280f yaptık
+    levelGate.setPosition(sf::Vector2f(platforms.back().getPosition().x + 280.0f, 550.0f));
 }
 
 // --- ANA OYUN MOTORU ---
@@ -193,6 +195,14 @@ int main() {
         goldTexture.loadFromFile("../assets/gold.png");
     }
 
+    // --- BAYRAK GÖRSELİ (FLAG.PNG) YÜKLEMESİ ---
+    sf::Texture flagTexture;
+    if (!flagTexture.loadFromFile("assets/flag.png")) {
+        flagTexture.loadFromFile("../assets/flag.png");
+    }
+    sf::Sprite levelGate(flagTexture);
+    levelGate.setScale(sf::Vector2f(0.14f, 0.14f)); 
+
     // Bordomsu koyu pembe renk tonu ve kalın font ayarı
     sf::Color deepBordoPink(139, 0, 70); 
 
@@ -209,9 +219,6 @@ int main() {
     sf::RectangleShape ground(sf::Vector2f(5000.0f, 50.0f));
     ground.setFillColor(sf::Color(100, 100, 100));
     ground.setPosition(sf::Vector2f(0.0f, 550.0f));
-
-    sf::RectangleShape levelGate(sf::Vector2f(20.0f, 150.0f));
-    levelGate.setFillColor(sf::Color::Green);
 
     sf::Texture bgTexture;
     bool hasBg = bgTexture.loadFromFile("assets/sunset_cloud.png");
@@ -467,7 +474,7 @@ int main() {
         float uiBaseY = 20.0f;
         uiText.setPosition(sf::Vector2f(uiBaseX, uiBaseY));
 
-        // --- EKRANA ÇİZİM AŞAMALARI (RENDER) ---
+        // --- EKRANA ÇİZİM AŞAMALARI ---
         window.clear(sf::Color::Black); 
         
         if (hasBg && bgWidth > 0.0f) {
@@ -475,7 +482,7 @@ int main() {
             window.draw(bgSprite2);
         }   
         window.draw(ground);            
-        window.draw(levelGate); 
+        window.draw(levelGate); // Bayrağı çizdiriyoruz
         
         for (const auto& enemy : enemies) window.draw(enemy.shape);
         for (const auto& b : bullets) window.draw(b);
