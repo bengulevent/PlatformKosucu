@@ -317,50 +317,70 @@ int main() {
             }
         }
 
+        // --- GAME OVER EKRANI ---
         if (isGameOver) {
-            centerText.setString("GAME OVER! Yandiniz.");
-            centerText.setPosition(sf::Vector2f(camera.getCenter().x - 180.0f, 250.0f));
-            window.clear(sf::Color::Black);
+            window.setView(window.getDefaultView()); 
+            window.clear(sf::Color(45, 45, 45)); // 1. Arka plan tatli bir KOYU GRI tonu yapildi
+
+            // 2. GAME OVER yazisi tek satirda yan yana, BEYAZ, KALIN ve ideal boyutta ayarlandi
+            centerText.setString("GAME OVER");
+            centerText.setFillColor(sf::Color::White); 
+            centerText.setStyle(sf::Text::Bold);
+            centerText.setCharacterSize(48); // Ideal ve abartisiz buyukluk
+            
+            sf::FloatRect textBounds = centerText.getLocalBounds();
+            centerText.setOrigin(sf::Vector2f(textBounds.size.x / 2.0f, textBounds.size.y / 2.0f));
+            centerText.setPosition(sf::Vector2f(400.0f, 200.0f)); // Ekranin ust-orta kisminda konumlandirma
+
             window.draw(centerText);
+
+            // 3. Altina game_over.png gorselinin ortalanarak eklenmesi
+            sf::Texture gameOverTexture;
+            if (gameOverTexture.loadFromFile("assets/game_over.png")) {
+                sf::Sprite gameOverSprite(gameOverTexture);
+                
+                // Gorselin ekranda cok devasa durmamasi icin olceklendirme yapildi
+                gameOverSprite.setScale(sf::Vector2f(0.55f, 0.55f)); 
+                
+                sf::FloatRect spriteBounds = gameOverSprite.getLocalBounds();
+                gameOverSprite.setOrigin(sf::Vector2f(spriteBounds.size.x / 2.0f, spriteBounds.size.y / 2.0f));
+                gameOverSprite.setPosition(sf::Vector2f(400.0f, 360.0f)); // Yazinin altinda tam ortalanmis konum
+                
+                window.draw(gameOverSprite);
+            }
+
             window.display();
             continue; 
         }
 
-        // --- ÖZELLEŞTİRİLMİŞ RETRO KAZANMA EKRANI RENDERI VE KONFETİ SİMÜLASYONU ---
+        // --- ÖZELLEŞTİRİLMİŞ RETRO KAZANMA EKRANI RENDERI ---
         if (isGameWon) {
-            // Dinamik konfeti üretimi (Ekran kalabalık değilse yeni konfetiler saç)
             if (confettis.size() < 120) {
                 Confetti c;
-                c.shape.setSize(sf::Vector2f(8.0f, 8.0f)); // Retro pikselli küçük kareler
+                c.shape.setSize(sf::Vector2f(8.0f, 8.0f)); 
                 c.shape.setFillColor(confettiColors[std::rand() % confettiColors.size()]);
                 c.shape.setOrigin(sf::Vector2f(4.0f, 4.0f));
-                // Ekranın üstünde rastgele yatay konumlarda başlasın
                 c.shape.setPosition(sf::Vector2f(static_cast<float>(std::rand() % 800), static_cast<float>(-(std::rand() % 40))));
-                c.speedX = static_cast<float>((std::rand() % 40) - 20) / 10.0f; // Sola sağa hafif salınım
-                c.speedY = static_cast<float>((std::rand() % 30) + 20) / 10.0f;  // Aşağı süzülme hızı
-                c.rotationSpeed = static_cast<float>((std::rand() % 10) - 5);    // Kendi etrafında dönme
+                c.speedX = static_cast<float>((std::rand() % 40) - 20) / 10.0f; 
+                c.speedY = static_cast<float>((std::rand() % 30) + 20) / 10.0f;  
+                c.rotationSpeed = static_cast<float>((std::rand() % 10) - 5);    
                 confettis.push_back(c);
             }
 
-            // Konfetilerin hareket ettirilmesi güncellemesi
             for (auto& c : confettis) {
                 c.shape.move(sf::Vector2f(c.speedX, c.speedY));
                 c.shape.rotate(sf::Angle(sf::degrees(c.rotationSpeed)));
-                // Ekranın altına düşen konfeti parçalarını tekrar yukarıya ışınla (Sonsuz döngü)
                 if (c.shape.getPosition().y > 600.0f) {
                     c.shape.setPosition(sf::Vector2f(static_cast<float>(std::rand() % 800), -10.0f));
                     c.speedY = static_cast<float>((std::rand() % 30) + 20) / 10.0f;
                 }
             }
 
-            // Kamerayı oyun sonu ekranına sabitlemek için default görünümü geri alıyoruz
             window.setView(window.getDefaultView()); 
             window.clear();
             
-            // 1. Soft Sarı Arka Planı Çiz
             window.draw(softYellowBg);
 
-            // 2. Metinlerin Boyut Hesaplamaları ve Ortalanması
             sf::FloatRect bounds1 = winText1.getLocalBounds();
             winText1.setOrigin(sf::Vector2f(bounds1.size.x / 2.0f, bounds1.size.y / 2.0f));
             winText1.setPosition(sf::Vector2f(400.0f, 110.0f));
@@ -369,17 +389,14 @@ int main() {
             winText2.setOrigin(sf::Vector2f(bounds2.size.x / 2.0f, bounds2.size.y / 2.0f));
             winText2.setPosition(sf::Vector2f(400.0f, 180.0f));
 
-            // 3. Kupayı Yazıların Altına Tam Ortala (Büyütülmüş Yeni Boyutla)
             sf::FloatRect cupBounds = cupSprite.getLocalBounds();
             cupSprite.setOrigin(sf::Vector2f(cupBounds.size.x / 2.0f, cupBounds.size.y / 2.0f));
             cupSprite.setPosition(sf::Vector2f(400.0f, 390.0f));
 
-            // Ekrana basma sırası
             window.draw(winText1);
             window.draw(winText2);
             window.draw(cupSprite);
             
-            // Konfetileri kupanın ve yazıların hem arkasına hem önüne dağılması için en son çiziyoruz
             for (const auto& c : confettis) {
                 window.draw(c.shape);
             }
@@ -445,7 +462,6 @@ int main() {
         }
 
         showWarning = false; 
-        // --- SÜRÜM BAĞIMSIZ HATA VERMEYEN OPERATÖR MATEMATİKSEL ÇARPIŞMALARI ---
         sf::FloatRect gateBounds = levelGate.getGlobalBounds();
         if (playerBounds.position.x < gateBounds.position.x + gateBounds.size.x &&
             playerBounds.position.x + playerBounds.size.x > gateBounds.position.x &&
@@ -572,7 +588,7 @@ int main() {
             }
         }
 
-        // --- RETRO ARAYÜZ METİN YAPISI ---
+        // RETRO ARAYÜZ METİN YAPISI
         std::string uiStr = "LEVEL: " + std::to_string(currentLevel) + "\n" +
                             "SCORE: " + std::to_string(score);
         
@@ -602,13 +618,11 @@ int main() {
         player.draw(window);            
         window.draw(uiText); 
 
-        // --- UYARI YAZISINI EKRANIN TAM ORTASINA DİNAMİK OLARAK BAĞLAMA ---
         if (showWarning) {
             warningText.setPosition(sf::Vector2f(camera.getCenter().x - 240.0f, 260.0f));
             window.draw(warningText);
         }
 
-        // --- SCORE ALTINDAKİ RETRO KALP SIRALAMASI ---
         if (hasHeartImg) {
             float startHeartX = uiBaseX;    
             float heartY = uiBaseY + 74.0f; 
@@ -620,7 +634,7 @@ int main() {
         }
         
         window.display();           
-    }
+    } // 'while (window.isOpen())' dongusunun kapanisi
 
     // Temizlik
     for (auto& c : coins) {
@@ -628,4 +642,4 @@ int main() {
     }
 
     return 0;
-}
+} // 'int main()' fonksiyonunun kapanisi
