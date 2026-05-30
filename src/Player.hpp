@@ -4,23 +4,26 @@
 #include <SFML/Graphics.hpp>
 
 class Player {
+private:
+    sf::Sprite* sprite;      // SFML 3.0 kurucu hatasını önleyen pointer
+    sf::Texture texture;     // Sınıf ömrü boyunca yok olmaması için burada kalmalı
+    sf::FloatRect bounds;
+
+    sf::IntRect frameRect;   
+    int currentFrame;        
+    bool isFacingLeft;       
+    float frameWidth;        
+    float frameHeight;       
+
 public:
-    // Yapıcı ve Temel Fonksiyonlar (Sadece birer kez tanımlı)
-    Player(sf::Vector2f size, sf::Vector2f position);
-    void update();
+    Player(const sf::Vector2f& size, const sf::Vector2f& position);
+    ~Player(); 
+    
+    void update(bool moveLeft, bool moveRight, bool firePressed);
     void draw(sf::RenderWindow& window);
     
-    // Çarpışma ve Reset Fonksiyonları
-    sf::FloatRect getBounds() const { return body.getGlobalBounds(); }
-    void resetPosition(sf::Vector2f newPos) { body.setPosition(newPos); velocityY = 0.0f; }
-
-private:
-    sf::RectangleShape body;
-    float speed;
-    float velocityY;
-    float gravity;
-    float jumpSpeed;
-    bool isGrounded;
+    sf::FloatRect getBounds() const;
+    void resetPosition(const sf::Vector2f& newPos);
 };
 
 #endif
