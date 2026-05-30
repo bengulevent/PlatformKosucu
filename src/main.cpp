@@ -7,11 +7,23 @@
 #include <cstdlib> 
 #include <ctime>
 
-// --- OYUN NESNELERİNİN YAPILARI (STRUCTS) ---
+// --- MAC OS İÇİN OTOMATİK DİZİN BULUCU ---
+#include <filesystem>
+std::string getResourcePath(const std::string& filename) {
+    if (std::filesystem::exists("assets/" + filename)) {
+        return "assets/" + filename;
+    }
+    if (std::filesystem::exists("../assets/" + filename)) {
+        return "../assets/" + filename;
+    }
+    return "assets/" + filename; 
+}
+
+// --- OYUN NESNELERİNİN YAPILARI ---
 
 struct CustomEnemy {
     sf::Sprite* sprite;      
-    int type;               // 0: Yatay devriye gezen, 1: Dikey uçan canavar
+    int type;               
     float speedX;
     float speedY;
     float startX;
@@ -32,10 +44,9 @@ struct Confetti {
     float rotationSpeed;
 };
 
-// --- ORİJİNAL BÖLÜM TASARIM MOTORU (ESKİ LEVELLER) ---
-void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, std::vector<CustomEnemy*>& enemies, std::vector<GoldCoin>& coins, sf::Sprite& levelGate, const sf::Texture& goldTexture, const sf::Texture& enemyTexture) {
+// --- BÖLÜM TASARIM MOTORU ---
+void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, std::vector<CustomEnemy*>& enemies, std::vector<GoldCoin>& coins, sf::Sprite& levelGate, const sf::Texture& goldTexture, const sf::Texture& enemyTexture, const sf::Texture& blockTexture) {
     
-    // Hafıza temizliği
     for (auto& c : coins) delete c.sprite;
     for (auto& e : enemies) {
         if (e && e->sprite) delete e->sprite;
@@ -43,51 +54,48 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
     }
     platforms.clear(); enemies.clear(); coins.clear();
 
-    // --- LEVEL 1 (Orijinal Düzen) ---
+    // --- LEVEL 1 ---
     if (level == 1) {
         std::vector<sf::Vector2f> platPositions = {
             {250.0f, 450.0f}, {450.0f, 420.0f}, {700.0f, 460.0f}, 
             {950.0f, 430.0f}, {1200.0f, 400.0f}, {1450.0f, 450.0f}
         };
         for (const auto& pos : platPositions) {
-            sf::RectangleShape plat(sf::Vector2f(140.0f, 10.0f)); 
-            plat.setFillColor(sf::Color(120, 120, 120)); 
+            sf::RectangleShape plat(sf::Vector2f(140.0f, 24.0f)); 
             plat.setPosition(pos);
+            plat.setTexture(&blockTexture);
             platforms.push_back(plat);
         }
 
-        // Düşman 1 (Yatay)
         CustomEnemy* e1 = new CustomEnemy(); e1->type = 0; 
         e1->sprite = new sf::Sprite(enemyTexture);
         e1->sprite->setScale(sf::Vector2f(0.15f, 0.15f)); 
-        e1->startX = 450.0f; e1->startY = 360.0f;          
+        e1->startX = 450.0f; e1->startY = 350.0f;          
         e1->sprite->setPosition(sf::Vector2f(e1->startX, e1->startY)); 
         e1->speedX = 3.0f; e1->speedY = 0.0f; e1->patrolRange = 100.0f;
         enemies.push_back(e1);
 
-        // Düşman 2 (Yatay)
         CustomEnemy* e2 = new CustomEnemy(); e2->type = 0; 
         e2->sprite = new sf::Sprite(enemyTexture);
         e2->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
-        e2->startX = 950.0f; e2->startY = 370.0f; 
+        e2->startX = 950.0f; e2->startY = 360.0f; 
         e2->sprite->setPosition(sf::Vector2f(e2->startX, e2->startY)); 
         e2->speedX = -2.5f; e2->speedY = 0.0f; e2->patrolRange = 80.0f;
         enemies.push_back(e2);
     } 
-    // --- LEVEL 2 (Orijinal Düzen) ---
+    // --- LEVEL 2 ---
     else if (level == 2) {
         std::vector<sf::Vector2f> platPositions = {
             {200.0f, 480.0f}, {380.0f, 390.0f}, {550.0f, 320.0f}, 
             {750.0f, 420.0f}, {980.0f, 350.0f}, {1200.0f, 460.0f}
         };
         for (const auto& pos : platPositions) {
-            sf::RectangleShape plat(sf::Vector2f(120.0f, 12.0f)); 
-            plat.setFillColor(sf::Color(100, 149, 237)); 
+            sf::RectangleShape plat(sf::Vector2f(120.0f, 24.0f)); 
             plat.setPosition(pos);
+            plat.setTexture(&blockTexture);
             platforms.push_back(plat);
         }
 
-        // Düşman 1 (Dikey uçan)
         CustomEnemy* e1 = new CustomEnemy(); e1->type = 1; 
         e1->sprite = new sf::Sprite(enemyTexture);
         e1->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
@@ -96,16 +104,14 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         e1->speedX = 0.0f; e1->speedY = 2.5f; e1->patrolRange = 80.0f;
         enemies.push_back(e1);
 
-        // Düşman 2 (Yatay)
         CustomEnemy* e2 = new CustomEnemy(); e2->type = 0; 
         e2->sprite = new sf::Sprite(enemyTexture);
         e2->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
-        e2->startX = 750.0f; e2->startY = 360.0f;
+        e2->startX = 750.0f; e2->startY = 350.0f;
         e2->sprite->setPosition(sf::Vector2f(e2->startX, e2->startY)); 
         e2->speedX = 4.0f; e2->speedY = 0.0f; e2->patrolRange = 100.0f;
         enemies.push_back(e2);
 
-        // Düşman 3 (Yatay)
         CustomEnemy* e3 = new CustomEnemy(); e3->type = 0; 
         e3->sprite = new sf::Sprite(enemyTexture);
         e3->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
@@ -114,7 +120,7 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         e3->speedX = 2.0f; e3->speedY = 0.0f; e3->patrolRange = 60.0f;
         enemies.push_back(e3);
     } 
-    // --- LEVEL 3 (Orijinal Düzen) ---
+    // --- LEVEL 3 ---
     else if (level == 3) {
         std::vector<sf::Vector2f> platPositions = {
             {150.0f, 450.0f}, {320.0f, 360.0f}, {500.0f, 420.0f},
@@ -122,9 +128,9 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
             {1300.0f, 460.0f}, {1500.0f, 400.0f} 
         };
         for (const auto& pos : platPositions) {
-            sf::RectangleShape plat(sf::Vector2f(110.0f, 15.0f)); 
-            plat.setFillColor(sf::Color(178, 34, 34)); 
+            sf::RectangleShape plat(sf::Vector2f(110.0f, 24.0f)); 
             plat.setPosition(pos);
+            plat.setTexture(&blockTexture);
             platforms.push_back(plat);
         }
 
@@ -140,7 +146,7 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         e2->sprite = new sf::Sprite(enemyTexture);
         e2->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
         e2->startX = 700.0f; e2->startY = 220.0f;
-        e2->sprite->setPosition(sf::Vector2f(e2->startX, e2->startY));
+        (e2->sprite)->setPosition(sf::Vector2f(e2->startX, e2->startY));
         e2->speedX = 0.0f; e2->speedY = 4.0f; e2->patrolRange = 100.0f;
         enemies.push_back(e2);
 
@@ -169,14 +175,13 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         enemies.push_back(e5);
     }
 
-    // Altın yerleşimi
     for (const auto& plat : platforms) {
         GoldCoin coin;
         coin.sprite = new sf::Sprite(goldTexture); 
         coin.sprite->setScale(sf::Vector2f(0.09f, 0.09f)); 
         sf::FloatRect coinBounds = coin.sprite->getLocalBounds();
         coin.sprite->setOrigin(sf::Vector2f(coinBounds.size.x / 2.0f, coinBounds.size.y / 2.0f));
-        coin.sprite->setPosition(sf::Vector2f(plat.getPosition().x + (plat.getSize().x / 2.0f), plat.getPosition().y - 44.0f));
+        coin.sprite->setPosition(sf::Vector2f(plat.getPosition().x + (plat.getSize().x / 2.0f), plat.getPosition().y - 30.0f));
         coin.bounds = coin.sprite->getGlobalBounds(); 
         coin.isCollected = false;
         coins.push_back(coin);
@@ -196,7 +201,7 @@ int main() {
     sf::View camera(sf::FloatRect(sf::Vector2f(0.0f, 0.0f), sf::Vector2f(800.0f, 600.0f)));
 
     sf::Font font;
-    if (!font.openFromFile("assets/pixel.ttf")) {
+    if (!font.openFromFile(getResourcePath("pixel.ttf"))) {
         if (!font.openFromFile("/System/Library/Fonts/Supplemental/Arial.ttf")) {
             font.openFromFile("Courier.dfont");
         }
@@ -204,20 +209,26 @@ int main() {
 
     sf::Texture heartTexture;
     bool hasHeartImg = false;
-    if (heartTexture.loadFromFile("assets/pixel_heart.png")) hasHeartImg = true;
+    if (heartTexture.loadFromFile(getResourcePath("pixel_heart.png"))) hasHeartImg = true;
     sf::Sprite heartSprite(heartTexture);
     if (hasHeartImg) heartSprite.setScale(sf::Vector2f(0.06f, 0.06f)); 
 
-    sf::Texture goldTexture; goldTexture.loadFromFile("assets/gold.png");
-    sf::Texture enemyTexture; enemyTexture.loadFromFile("assets/evin.png");
+    sf::Texture goldTexture; goldTexture.loadFromFile(getResourcePath("gold.png"));
+    sf::Texture enemyTexture; enemyTexture.loadFromFile(getResourcePath("evin.png"));
     
-    sf::Texture cupTexture; cupTexture.loadFromFile("assets/cup.png");
+    sf::Texture cupTexture; cupTexture.loadFromFile(getResourcePath("cup.png"));
     sf::Sprite cupSprite(cupTexture);
     cupSprite.setScale(sf::Vector2f(0.40f, 0.40f)); 
 
-    sf::Texture flagTexture; flagTexture.loadFromFile("assets/flag.png");
+    sf::Texture flagTexture; flagTexture.loadFromFile(getResourcePath("flag.png"));
     sf::Sprite levelGate(flagTexture);
     levelGate.setScale(sf::Vector2f(0.14f, 0.14f)); 
+
+    sf::Texture blockTexture;
+    if (!blockTexture.loadFromFile(getResourcePath("blok.png"))) {
+        std::cout << "HATA: assets/blok.png yuklenemedi!" << std::endl;
+    }
+    blockTexture.setRepeated(true); 
 
     sf::Color deepBordoPink(139, 0, 70); 
     sf::Text uiText(font);
@@ -255,7 +266,7 @@ int main() {
     softYellowBg.setFillColor(sf::Color(255, 255, 204)); 
 
     sf::Texture bgTexture;
-    bool hasBg = bgTexture.loadFromFile("assets/sunset_cloud.png");
+    bool hasBg = bgTexture.loadFromFile(getResourcePath("sunset_cloud.png"));
     sf::Sprite bgSprite1(bgTexture);
     sf::Sprite bgSprite2(bgTexture);
     
@@ -271,17 +282,14 @@ int main() {
     std::vector<CustomEnemy*> enemies; 
     std::vector<GoldCoin> coins; 
     std::vector<Confetti> confettis;
-    
-    // Rengarenk şölen için konfeti renk paleti genişletildi kanki
     std::vector<sf::Color> confettiColors = { 
         sf::Color(255,105,180), sf::Color(0,255,255), sf::Color(255,215,0),
-        sf::Color(50,205,50), sf::Color(255,69,0), sf::Color(147,112,219)
+        sf::Color(50,205,50), sf::Color(255,69,0)
     };
 
     int currentLevel = 1;
-    generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture);
+    generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture, blockTexture);
 
-    // Yeni jilet gibi olan ara boyut ayarımız
     Player player(sf::Vector2f(85.0f, 130.0f), sf::Vector2f(100.0f, 350.0f));
     sf::FloatRect playerBounds = player.getBounds();
 
@@ -313,32 +321,20 @@ int main() {
             continue; 
         }
 
-        // --- ORİJİNAL "YOU WIN" EKRANI MOTORU ---
         if (isGameWon) {
-            // Kamerayı oyun alanı karmaşasından sıfırlayıp tam merkeze çekiyoruz (Ekran düzeldi!)
             window.setView(window.getDefaultView()); 
-            
             if (confettis.size() < 150) {
-                Confetti c; 
-                c.shape.setSize(sf::Vector2f(9.0f, 9.0f)); 
+                Confetti c; c.shape.setSize(sf::Vector2f(9.0f, 9.0f)); 
                 c.shape.setFillColor(confettiColors[std::rand() % confettiColors.size()]);
-                c.shape.setOrigin(sf::Vector2f(4.5f, 4.5f));
                 c.shape.setPosition(sf::Vector2f(static_cast<float>(std::rand() % 800), -20.0f));
                 c.speedX = static_cast<float>((std::rand() % 40) - 20) / 10.0f; 
                 c.speedY = static_cast<float>((std::rand() % 30) + 20) / 10.0f;  
-                c.rotationSpeed = static_cast<float>((std::rand() % 10) - 5);    
                 confettis.push_back(c);
             }
-
             for (auto& c : confettis) {
                 c.shape.move(sf::Vector2f(c.speedX, c.speedY));
-                c.shape.rotate(sf::Angle(sf::degrees(c.rotationSpeed)));
-                if (c.shape.getPosition().y > 600.0f) {
-                    c.shape.setPosition(sf::Vector2f(static_cast<float>(std::rand() % 800), -10.0f));
-                    c.speedY = static_cast<float>((std::rand() % 30) + 20) / 10.0f;
-                }
+                if (c.shape.getPosition().y > 600.0f) c.shape.setPosition(sf::Vector2f(static_cast<float>(std::rand() % 800), -10.0f));
             }
-
             window.clear(); 
             window.draw(softYellowBg);
 
@@ -418,8 +414,15 @@ int main() {
             if (score >= 60) { 
                 if (currentLevel < 3) {
                     currentLevel++; score = 0; 
-                    generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture);
-                    player.resetPosition(sf::Vector2f(100.0f, 350.0f)); platformJumpVelocity = 0.0f; bullets.clear();
+                    generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture, blockTexture);
+                    
+                    // --- KRİTİK MUTLAK DÜZELTME ---
+                    player.resetPosition(sf::Vector2f(100.0f, 350.0f)); 
+                    platformJumpVelocity = 0.0f; 
+                    bullets.clear();
+                    
+                    // Döngünün geri kalanını atlatıp basılı tuş ivmesini sıfırlıyoruz kanki!
+                    continue; 
                 } else isGameWon = true;
             } else showWarning = true;
         }
@@ -467,9 +470,13 @@ int main() {
             if (enemy && enemy->sprite) {
                 sf::FloatRect eBounds = enemy->sprite->getGlobalBounds();
                 if (playerBounds.position.x < eBounds.position.x + eBounds.size.x && playerBounds.position.x + playerBounds.size.x > eBounds.position.x && playerBounds.position.y < eBounds.position.y + eBounds.size.y && playerBounds.position.y + playerBounds.size.y > eBounds.position.y) {
-                    health--; score = 0; generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture); 
-                    player.resetPosition(sf::Vector2f(100.0f, 350.0f)); bullets.clear();
-                    if (health <= 0) isGameOver = true; break;
+                    health--; score = 0; generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture, blockTexture); 
+                    
+                    // Öldüğünde de döngü sıçramasını önlemek için continue atıyoruz
+                    player.resetPosition(sf::Vector2f(100.0f, 350.0f)); 
+                    bullets.clear();
+                    if (health <= 0) isGameOver = true; 
+                    continue;
                 }
             }
         }
@@ -489,7 +496,11 @@ int main() {
         window.draw(ground); window.draw(levelGate); 
         for (const auto& enemy : enemies) if (enemy && enemy->sprite) window.draw(*(enemy->sprite)); 
         for (const auto& b : bullets) window.draw(b);
-        for (const auto& platform : platforms) window.draw(platform);
+        
+        for (const auto& platform : platforms) {
+            window.draw(platform);
+        }
+        
         for (const auto& c : coins) if (!c.isCollected) window.draw(*(c.sprite));
         player.draw(window); window.draw(uiText); 
 
