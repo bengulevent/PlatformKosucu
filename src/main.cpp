@@ -4,15 +4,14 @@
 #include <vector> 
 #include <cmath>
 #include <iostream>
-#include <cstdlib> // Konfetilerin rastgele konum ve renkleri için
+#include <cstdlib> 
 #include <ctime>
 
 // --- OYUN NESNELERİNİN YAPILARI (STRUCTS) ---
 
-// Haritadaki renkli canavarların koordinat, hız ve devriye sınırlarını tutan yapı
 struct CustomEnemy {
-    sf::RectangleShape shape;
-    int type; // 0: Yatay devriye gezen, 1: Dikey (aşağı-yukarı) uçan canavar
+    sf::Sprite* sprite;      // SFML 3.0 kurucu hatalarını engellemek için pointer
+    int type;               // 0: Yatay devriye gezen, 1: Dikey (aşağı-yukarı) uçan canavar
     float speedX;
     float speedY;
     float startX;
@@ -20,14 +19,14 @@ struct CustomEnemy {
     float patrolRange;
 };
 
-// SFML 3.0 sürümündeki 'default constructor' hatalarını engellemek için pointer ile tasarladığımız altın yapısı
+// Altın yapısı
 struct GoldCoin {
-    sf::Sprite* sprite; // Bellek hatası vermemesi için sprite nesnesini pointer (işaretçi) olarak tutuyoruz
-    sf::FloatRect bounds; // Altının ekrandaki çarpışma kutusu koordinatları
-    bool isCollected;   // Oyuncu altını aldı mı almadı mı kontrolü
+    sf::Sprite* sprite; 
+    sf::FloatRect bounds; 
+    bool isCollected;   
 };
 
-// --- RETRO KAZANMA EKRANI İÇİN KONFETİ YAPISI ---
+// Konfeti yapısı
 struct Confetti {
     sf::RectangleShape shape;
     float speedX;
@@ -36,19 +35,26 @@ struct Confetti {
 };
 
 // --- BÖLÜM TASARIM MOTORU ---
-void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, std::vector<CustomEnemy>& enemies, std::vector<GoldCoin>& coins, sf::Sprite& levelGate, const sf::Texture& goldTexture) {
+void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, std::vector<CustomEnemy*>& enemies, std::vector<GoldCoin>& coins, sf::Sprite& levelGate, const sf::Texture& goldTexture, const sf::Texture& enemyTexture) {
     
-    // Hafıza sızıntısı (memory leak) olmasın diye bir önceki bölümden kalan altın pointer'larını bellekten temizliyoruz
+    // Hafıza sızıntısını önlemek için eski altınları temizliyoruz
     for (auto& c : coins) {
         delete c.sprite;
     }
     
-    // Tüm listeleri yeni bölüme hazırlamak için sıfırlıyoruz
+    // Eski canavar ve içindeki sprite pointer'larını temizliyoruz
+    for (auto& e : enemies) {
+        if (e && e->sprite) {
+            delete e->sprite;
+        }
+        delete e;
+    }
+    
     platforms.clear();
     enemies.clear();
     coins.clear();
 
-    // --- LEVEL 1: Giriş Seviyesi (2 Canavar) ---
+    // --- LEVEL 1 ---
     if (level == 1) {
         std::vector<sf::Vector2f> platPositions = {
             {250.0f, 450.0f}, {450.0f, 420.0f}, {700.0f, 460.0f}, 
@@ -56,24 +62,32 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         };
         for (const auto& pos : platPositions) {
             sf::RectangleShape plat(sf::Vector2f(140.0f, 10.0f)); 
-            plat.setFillColor(sf::Color(120, 120, 120)); // Gri platformlar
+            plat.setFillColor(sf::Color(120, 120, 120)); 
             plat.setPosition(pos);
             platforms.push_back(plat);
         }
 
-        // Canavar 1: Orijinal Magenta Yatay Devriye Canavarı
-        CustomEnemy e1; e1.type = 0; e1.shape.setSize(sf::Vector2f(35.0f, 25.0f));
-        e1.shape.setFillColor(sf::Color::Magenta); e1.startX = 450.0f; e1.startY = 395.0f; 
-        e1.shape.setPosition(sf::Vector2f(e1.startX, e1.startY)); e1.speedX = 3.0f; e1.speedY = 0.0f; e1.patrolRange = 100.0f;
+        // Düşman 1 (Yatay) - Ölçek 0.15f yapıldı, Y koordinatı dengelendi
+        CustomEnemy* e1 = new CustomEnemy(); e1->type = 0; 
+        e1->sprite = new sf::Sprite(enemyTexture);
+        e1->sprite->setScale(sf::Vector2f(0.15f, 0.15f)); 
+        e1->startX = 450.0f; e1->startY = 360.0f;          
+        e1->sprite->setPosition(sf::Vector2f(e1->startX, e1->startY)); 
+        e1->sprite->setColor(sf::Color::White);           
+        e1->speedX = 3.0f; e1->speedY = 0.0f; e1->patrolRange = 100.0f;
         enemies.push_back(e1);
 
-        // Canavar 2: Sonlara doğru eklenen yeni bir Yeşil Yatay Canavar
-        CustomEnemy e2; e2.type = 0; e2.shape.setSize(sf::Vector2f(35.0f, 25.0f));
-        e2.shape.setFillColor(sf::Color::Green); e2.startX = 950.0f; e2.startY = 405.0f; 
-        e2.shape.setPosition(sf::Vector2f(e2.startX, e2.startY)); e2.speedX = -2.5f; e2.speedY = 0.0f; e2.patrolRange = 80.0f;
+        // Düşman 2 (Yatay) - Ölçek 0.15f yapıldı
+        CustomEnemy* e2 = new CustomEnemy(); e2->type = 0; 
+        e2->sprite = new sf::Sprite(enemyTexture);
+        e2->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
+        e2->startX = 950.0f; e2->startY = 370.0f; 
+        e2->sprite->setPosition(sf::Vector2f(e2->startX, e2->startY)); 
+        e2->sprite->setColor(sf::Color::White);
+        e2->speedX = -2.5f; e2->speedY = 0.0f; e2->patrolRange = 80.0f;
         enemies.push_back(e2);
     } 
-    // --- LEVEL 2: Orta Seviye Tırmanış (3 Canavar) ---
+    // --- LEVEL 2 ---
     else if (level == 2) {
         std::vector<sf::Vector2f> platPositions = {
             {200.0f, 480.0f}, {380.0f, 390.0f}, {550.0f, 320.0f}, 
@@ -81,30 +95,42 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         };
         for (const auto& pos : platPositions) {
             sf::RectangleShape plat(sf::Vector2f(120.0f, 12.0f)); 
-            plat.setFillColor(sf::Color(100, 149, 237)); // Mavi platformlar
+            plat.setFillColor(sf::Color(100, 149, 237)); 
             plat.setPosition(pos);
             platforms.push_back(plat);
         }
 
-        // Canavar 1: Orijinal Turkuaz (Cyan) Uçan Dikey Canavar
-        CustomEnemy e1; e1.type = 1; e1.shape.setSize(sf::Vector2f(30.0f, 30.0f));
-        e1.shape.setFillColor(sf::Color::Cyan); e1.startX = 480.0f; e1.startY = 250.0f;
-        e1.shape.setPosition(sf::Vector2f(e1.startX, e1.startY)); e1.speedX = 0.0f; e1.speedY = 2.5f; e1.patrolRange = 80.0f;
+        // Düşman 1 (Dikey) - Ölçek 0.15f yapıldı
+        CustomEnemy* e1 = new CustomEnemy(); e1->type = 1; 
+        e1->sprite = new sf::Sprite(enemyTexture);
+        e1->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
+        e1->startX = 480.0f; e1->startY = 250.0f;
+        e1->sprite->setPosition(sf::Vector2f(e1->startX, e1->startY)); 
+        e1->sprite->setColor(sf::Color::White);
+        e1->speedX = 0.0f; e1->speedY = 2.5f; e1->patrolRange = 80.0f;
         enemies.push_back(e1);
 
-        // Canavar 2: Havada sağa sola hızlı kaçan Mavi bir canavar
-        CustomEnemy e2; e2.type = 0; e2.shape.setSize(sf::Vector2f(30.0f, 30.0f));
-        e2.shape.setFillColor(sf::Color::Blue); e2.startX = 750.0f; e2.startY = 380.0f;
-        e2.shape.setPosition(sf::Vector2f(e2.startX, e2.startY)); e2.speedX = 4.0f; e2.speedY = 0.0f; e2.patrolRange = 100.0f;
+        // Düşman 2 (Yatay) - Ölçek 0.15f yapıldı
+        CustomEnemy* e2 = new CustomEnemy(); e2->type = 0; 
+        e2->sprite = new sf::Sprite(enemyTexture);
+        e2->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
+        e2->startX = 750.0f; e2->startY = 360.0f;
+        e2->sprite->setPosition(sf::Vector2f(e2->startX, e2->startY)); 
+        e2->sprite->setColor(sf::Color::White);
+        e2->speedX = 4.0f; e2->speedY = 0.0f; e2->patrolRange = 100.0f;
         enemies.push_back(e2);
 
-        // Canavar 3: Son platformda bekleyen Sarı bir canavar
-        CustomEnemy e3; e3.type = 0; e3.shape.setSize(sf::Vector2f(35.0f, 25.0f));
-        e3.shape.setFillColor(sf::Color::Yellow); e3.startX = 980.0f; e3.startY = 320.0f;
-        e3.shape.setPosition(sf::Vector2f(e3.startX, e3.startY)); e3.speedX = 2.0f; e3.speedY = 0.0f; e3.patrolRange = 60.0f;
+        // Düşman 3 (Yatay) - Ölçek 0.15f yapıldı
+        CustomEnemy* e3 = new CustomEnemy(); e3->type = 0; 
+        e3->sprite = new sf::Sprite(enemyTexture);
+        e3->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
+        e3->startX = 980.0f; e3->startY = 290.0f;
+        e3->sprite->setPosition(sf::Vector2f(e3->startX, e3->startY)); 
+        e3->sprite->setColor(sf::Color::White);
+        e3->speedX = 2.0f; e3->speedY = 0.0f; e3->patrolRange = 60.0f;
         enemies.push_back(e3);
     } 
-    // --- LEVEL 3: UZATILMIŞ VE ZORLAŞTIRILMIŞ FİNAL (5 Canavar!) ---
+    // --- LEVEL 3 ---
     else if (level == 3) {
         std::vector<sf::Vector2f> platPositions = {
             {150.0f, 450.0f}, {320.0f, 360.0f}, {500.0f, 420.0f},
@@ -113,58 +139,70 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         };
         for (const auto& pos : platPositions) {
             sf::RectangleShape plat(sf::Vector2f(110.0f, 15.0f)); 
-            plat.setFillColor(sf::Color(178, 34, 34)); // Kırmızı tehlikeli platformlar
+            plat.setFillColor(sf::Color(178, 34, 34)); 
             plat.setPosition(pos);
             platforms.push_back(plat);
         }
 
-        // Canavar 1: Orijinal Kırmızı Korkunç Dikey Canavar
-        CustomEnemy e1; e1.type = 1; e1.shape.setSize(sf::Vector2f(25.0f, 25.0f));
-        e1.shape.setFillColor(sf::Color::Red); e1.startX = 320.0f; e1.startY = 260.0f;
-        e1.shape.setPosition(sf::Vector2f(e1.startX, e1.startY)); e1.speedX = 0.0f; e1.speedY = 3.5f; e1.patrolRange = 90.0f;
+        CustomEnemy* e1 = new CustomEnemy(); e1->type = 1; 
+        e1->sprite = new sf::Sprite(enemyTexture);
+        e1->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
+        e1->startX = 320.0f; e1->startY = 260.0f;
+        e1->sprite->setPosition(sf::Vector2f(e1->startX, e1->startY));
+        e1->sprite->setColor(sf::Color::White);
+        e1->speedX = 0.0f; e1->speedY = 3.5f; e1->patrolRange = 90.0f;
         enemies.push_back(e1);
 
-        // Canavar 2: İkinci boşlukta aşağı yukarı uçan Sarı bir canavar
-        CustomEnemy e2; e2.type = 1; e2.shape.setSize(sf::Vector2f(25.0f, 25.0f));
-        e2.shape.setFillColor(sf::Color::Yellow); e2.startX = 700.0f; e2.startY = 220.0f;
-        e2.shape.setPosition(sf::Vector2f(e2.startX, e2.startY)); e2.speedX = 0.0f; e2.speedY = 4.0f; e2.patrolRange = 100.0f;
+        CustomEnemy* e2 = new CustomEnemy(); e2->type = 1; 
+        e2->sprite = new sf::Sprite(enemyTexture);
+        e2->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
+        e2->startX = 700.0f; e2->startY = 220.0f;
+        e2->sprite->setPosition(sf::Vector2f(e2->startX, e2->startY));
+        e2->sprite->setColor(sf::Color::White);
+        e2->speedX = 0.0f; e2->speedY = 4.0f; e2->patrolRange = 100.0f;
         enemies.push_back(e2);
 
-        // Canavar 3: Uzatılan kısımdaki geniş platformda hızlıca yürüyen Turuncu canavar
-        CustomEnemy e3; e3.type = 0; e3.shape.setSize(sf::Vector2f(35.0f, 25.0f));
-        e3.shape.setFillColor(sf::Color(255, 165, 0)); e3.startX = 900.0f; e3.startY = 410.0f;
-        e3.shape.setPosition(sf::Vector2f(e3.startX, e3.startY)); e3.speedX = 5.0f; e3.speedY = 0.0f; e3.patrolRange = 80.0f;
+        CustomEnemy* e3 = new CustomEnemy(); e3->type = 0; 
+        e3->sprite = new sf::Sprite(enemyTexture);
+        e3->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
+        e3->startX = 900.0f; e3->startY = 380.0f;
+        e3->sprite->setPosition(sf::Vector2f(e3->startX, e3->startY));
+        e3->sprite->setColor(sf::Color::White);
+        e3->speedX = 5.0f; e3->speedY = 0.0f; e3->patrolRange = 80.0f;
         enemies.push_back(e3);
 
-        // Canavar 4: Havada asılı duran mermi gibi hızlı git-gel yapan Beyaz bir canavar
-        CustomEnemy e4; e4.type = 0; e4.shape.setSize(sf::Vector2f(30.0f, 20.0f));
-        e4.shape.setFillColor(sf::Color::White); e4.startX = 1100.0f; e4.startY = 340.0f;
-        e4.shape.setPosition(sf::Vector2f(e4.startX, e4.startY)); e4.speedX = -6.0f; e4.speedY = 0.0f; e4.patrolRange = 90.0f;
+        CustomEnemy* e4 = new CustomEnemy(); e4->type = 0; 
+        e4->sprite = new sf::Sprite(enemyTexture);
+        e4->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
+        e4->startX = 1100.0f; e4->startY = 320.0f;
+        e4->sprite->setPosition(sf::Vector2f(e4->startX, e4->startY));
+        e4->sprite->setColor(sf::Color::White);
+        e4->speedX = -6.0f; e4->speedY = 0.0f; e4->patrolRange = 90.0f;
         enemies.push_back(e4);
 
-        // Canavar 5: Son kapıdan hemen önce duran devasa bir Mor canavar
-        CustomEnemy e5; e5.type = 0; e5.shape.setSize(sf::Vector2f(40.0f, 40.0f));
-        e5.shape.setFillColor(sf::Color(128, 0, 128)); e5.startX = 1500.0f; e5.startY = 350.0f;
-        e5.shape.setPosition(sf::Vector2f(e5.startX, e5.startY)); e5.speedX = 1.5f; e5.speedY = 0.0f; e5.patrolRange = 50.0f;
+        CustomEnemy* e5 = new CustomEnemy(); e5->type = 0; 
+        e5->sprite = new sf::Sprite(enemyTexture);
+        e5->sprite->setScale(sf::Vector2f(0.20f, 0.20f)); // Boss canavar hafif büyük kalmaya devam ediyor
+        e5->startX = 1500.0f; e5->startY = 340.0f;
+        e5->sprite->setPosition(sf::Vector2f(e5->startX, e5->startY));
+        e5->sprite->setColor(sf::Color::White);
+        e5->speedX = 1.5f; e5->speedY = 0.0f; e5->patrolRange = 50.0f;
         enemies.push_back(e5);
     }
 
-    // --- ÖZELLEŞTİRİLMİŞ ALTINLARI HARİTAYA DİZME ---
+    // Altınların yerleşimi
     for (const auto& plat : platforms) {
         GoldCoin coin;
         coin.sprite = new sf::Sprite(goldTexture); 
         coin.sprite->setScale(sf::Vector2f(0.09f, 0.09f)); 
-        
         sf::FloatRect coinBounds = coin.sprite->getLocalBounds();
         coin.sprite->setOrigin(sf::Vector2f(coinBounds.size.x / 2.0f, coinBounds.size.y / 2.0f));
         coin.sprite->setPosition(sf::Vector2f(plat.getPosition().x + (plat.getSize().x / 2.0f), plat.getPosition().y - 44.0f));
-        
         coin.bounds = coin.sprite->getGlobalBounds(); 
         coin.isCollected = false;
         coins.push_back(coin);
     }
 
-    // --- BAYRAĞI EN ALTTAKİ ANA ZEMİNE (550.0f) SABİTLEME ---
     sf::FloatRect gateBounds = levelGate.getLocalBounds();
     levelGate.setOrigin(sf::Vector2f(gateBounds.size.x / 2.0f, gateBounds.size.y)); 
     levelGate.setPosition(sf::Vector2f(platforms.back().getPosition().x + 280.0f, 550.0f));
@@ -172,57 +210,53 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
 
 // --- ANA OYUN MOTORU ---
 int main() {
-    std::srand(static_cast<unsigned int>(std::time(nullptr))); // Konfetiler için random seed
+    std::srand(static_cast<unsigned int>(std::time(nullptr))); 
 
     sf::RenderWindow window(sf::VideoMode(sf::Vector2u(800, 600)), "Platform Kosucu", sf::Style::Titlebar | sf::Style::Close);
     window.setFramerateLimit(60); 
 
     sf::View camera(sf::FloatRect(sf::Vector2f(0.0f, 0.0f), sf::Vector2f(800.0f, 600.0f)));
 
-    // Font Yükleme Güvenliği
     sf::Font font;
     if (!font.openFromFile("assets/pixel.ttf")) {
-        if (!font.openFromFile("../assets/pixel.ttf")) {
-            if (!font.openFromFile("/System/Library/Fonts/Supplemental/Arial.ttf")) {
-                font.openFromFile("/System/Library/Fonts/Courier.dfont");
-            }
+        if (!font.openFromFile("/System/Library/Fonts/Supplemental/Arial.ttf")) {
+            font.openFromFile("/System/Library/Fonts/Courier.dfont");
         }
     }
 
-    // Arayüz can kalpleri texture yüklemesi
     sf::Texture heartTexture;
     bool hasHeartImg = false;
     if (heartTexture.loadFromFile("assets/pixel_heart.png")) hasHeartImg = true;
-    else if (heartTexture.loadFromFile("../assets/pixel_heart.png")) hasHeartImg = true;
 
     sf::Sprite heartSprite(heartTexture);
     if (hasHeartImg) {
         heartSprite.setScale(sf::Vector2f(0.06f, 0.06f)); 
     }
 
-    // Altın görseli texture yüklemesi
     sf::Texture goldTexture;
     if (!goldTexture.loadFromFile("assets/gold.png")) {
-        goldTexture.loadFromFile("../assets/gold.png");
+        std::cout << "HATA: assets/gold.png yuklenemedi!" << std::endl;
     }
 
-    // --- KUPA GÖRSELİ (CUP.PNG) YÜKLEMESİ ---
+    sf::Texture enemyTexture;
+    if (!enemyTexture.loadFromFile("assets/evin.png")) {
+        std::cout << "HATA: assets/evin.png yuklenemedi!" << std::endl;
+    }
+
     sf::Texture cupTexture;
     if (!cupTexture.loadFromFile("assets/cup.png")) {
-        cupTexture.loadFromFile("../assets/cup.png");
+        std::cout << "HATA: assets/cup.png yuklenemedi!" << std::endl;
     }
     sf::Sprite cupSprite(cupTexture);
-    cupSprite.setScale(sf::Vector2f(0.40f, 0.40f)); // Kupa tam altlarında daha BÜYÜK ve ihtişamlı durması için büyütüldü
+    cupSprite.setScale(sf::Vector2f(0.40f, 0.40f)); 
 
-    // --- BAYRAK GÖRSELİ (FLAG.PNG) YÜKLEMESİ ---
     sf::Texture flagTexture;
     if (!flagTexture.loadFromFile("assets/flag.png")) {
-        flagTexture.loadFromFile("../assets/flag.png");
+        std::cout << "HATA: assets/flag.png yuklenemedi!" << std::endl;
     }
     sf::Sprite levelGate(flagTexture);
     levelGate.setScale(sf::Vector2f(0.14f, 0.14f)); 
 
-    // Bordomsu koyu pembe renk tonu ve kalın font ayarı
     sf::Color deepBordoPink(139, 0, 70); 
 
     sf::Text uiText(font);
@@ -235,7 +269,6 @@ int main() {
     centerText.setFillColor(sf::Color::Red);
     centerText.setStyle(sf::Text::Bold);
 
-    // --- KAZANMA METİNLERİ SEÇİMİ (KOYU SARI TONU) ---
     sf::Color darkYellow(204, 153, 0); 
 
     sf::Text winText1(font);
@@ -250,7 +283,6 @@ int main() {
     winText2.setStyle(sf::Text::Bold);
     winText2.setString("oyunu kazandiniz <33");
 
-    // Ekran ortası koyu lacivert uyarı yazısı
     sf::Color darkNavyBlue(0, 0, 102);
     sf::Text warningText(font);
     warningText.setCharacterSize(32);           
@@ -262,9 +294,8 @@ int main() {
     ground.setFillColor(sf::Color(100, 100, 100));
     ground.setPosition(sf::Vector2f(0.0f, 550.0f));
 
-    // --- SOFT SARI KAZANMA ARKA PLANI ---
     sf::RectangleShape softYellowBg(sf::Vector2f(800.0f, 600.0f));
-    softYellowBg.setFillColor(sf::Color(255, 255, 204)); // Tatlı soft sarı tonu
+    softYellowBg.setFillColor(sf::Color(255, 255, 204)); 
 
     sf::Texture bgTexture;
     bool hasBg = bgTexture.loadFromFile("assets/sunset_cloud.png");
@@ -281,21 +312,17 @@ int main() {
     }
 
     std::vector<sf::RectangleShape> platforms;
-    std::vector<CustomEnemy> enemies;
+    std::vector<CustomEnemy*> enemies; 
     std::vector<GoldCoin> coins; 
 
-    // --- KONFETİ LİSTESİ VE RENKLERİ ---
     std::vector<Confetti> confettis;
     std::vector<sf::Color> confettiColors = {
-        sf::Color(255, 105, 180), // Pembe
-        sf::Color(0, 255, 255),   // Turkuaz / Camgöbeği
-        sf::Color(255, 215, 0),   // Canlı Sarı
-        sf::Color(50, 205, 50),   // Yeşil
-        sf::Color(255, 69, 0)     // Turuncu
+        sf::Color(255, 105, 180), sf::Color(0, 255, 255),   
+        sf::Color(255, 215, 0), sf::Color(50, 205, 50), sf::Color(255, 69, 0)
     };
 
     int currentLevel = 1;
-    generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture);
+    generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture);
 
     Player player(sf::Vector2f(50.0f, 50.0f), sf::Vector2f(100.0f, 400.0f));
 
@@ -320,32 +347,26 @@ int main() {
         // --- GAME OVER EKRANI ---
         if (isGameOver) {
             window.setView(window.getDefaultView()); 
-            window.clear(sf::Color(45, 45, 45)); // 1. Arka plan tatli bir KOYU GRI tonu yapildi
+            window.clear(sf::Color(45, 45, 45)); 
 
-            // 2. GAME OVER yazisi tek satirda yan yana, BEYAZ, KALIN ve ideal boyutta ayarlandi
             centerText.setString("GAME OVER");
             centerText.setFillColor(sf::Color::White); 
             centerText.setStyle(sf::Text::Bold);
-            centerText.setCharacterSize(48); // Ideal ve abartisiz buyukluk
+            centerText.setCharacterSize(48); 
             
             sf::FloatRect textBounds = centerText.getLocalBounds();
             centerText.setOrigin(sf::Vector2f(textBounds.size.x / 2.0f, textBounds.size.y / 2.0f));
-            centerText.setPosition(sf::Vector2f(400.0f, 200.0f)); // Ekranin ust-orta kisminda konumlandirma
+            centerText.setPosition(sf::Vector2f(400.0f, 200.0f)); 
 
             window.draw(centerText);
 
-            // 3. Altina game_over.png gorselinin ortalanarak eklenmesi
             sf::Texture gameOverTexture;
             if (gameOverTexture.loadFromFile("assets/game_over.png")) {
                 sf::Sprite gameOverSprite(gameOverTexture);
-                
-                // Gorselin ekranda cok devasa durmamasi icin olceklendirme yapildi
                 gameOverSprite.setScale(sf::Vector2f(0.55f, 0.55f)); 
-                
                 sf::FloatRect spriteBounds = gameOverSprite.getLocalBounds();
                 gameOverSprite.setOrigin(sf::Vector2f(spriteBounds.size.x / 2.0f, spriteBounds.size.y / 2.0f));
-                gameOverSprite.setPosition(sf::Vector2f(400.0f, 360.0f)); // Yazinin altinda tam ortalanmis konum
-                
+                gameOverSprite.setPosition(sf::Vector2f(400.0f, 360.0f)); 
                 window.draw(gameOverSprite);
             }
 
@@ -353,7 +374,7 @@ int main() {
             continue; 
         }
 
-        // --- ÖZELLEŞTİRİLMİŞ RETRO KAZANMA EKRANI RENDERI ---
+        // --- KAZANMA EKRANI ---
         if (isGameWon) {
             if (confettis.size() < 120) {
                 Confetti c;
@@ -378,7 +399,6 @@ int main() {
 
             window.setView(window.getDefaultView()); 
             window.clear();
-            
             window.draw(softYellowBg);
 
             sf::FloatRect bounds1 = winText1.getLocalBounds();
@@ -447,16 +467,19 @@ int main() {
             bgSprite2.setPosition(sf::Vector2f(camera.getCenter().x - 400.0f - offset + bgWidth, 0.0f));
         }
 
+        // Canavar evlerin hareketi
         for (auto& enemy : enemies) {
-            if (enemy.type == 0) {
-                enemy.shape.move(sf::Vector2f(enemy.speedX, 0.0f));
-                if (std::abs(enemy.shape.getPosition().x - enemy.startX) > enemy.patrolRange) {
-                    enemy.speedX *= -1.0f;
-                }
-            } else if (enemy.type == 1) {
-                enemy.shape.move(sf::Vector2f(0.0f, enemy.speedY));
-                if (std::abs(enemy.shape.getPosition().y - enemy.startY) > enemy.patrolRange) {
-                    enemy.speedY *= -1.0f;
+            if (enemy && enemy->sprite) {
+                if (enemy->type == 0) { 
+                    enemy->sprite->move(sf::Vector2f(enemy->speedX, 0.0f));
+                    if (std::abs(enemy->sprite->getPosition().x - enemy->startX) > enemy->patrolRange) {
+                        enemy->speedX *= -1.0f;
+                    }
+                } else if (enemy->type == 1) { 
+                    enemy->sprite->move(sf::Vector2f(0.0f, enemy->speedY));
+                    if (std::abs(enemy->sprite->getPosition().y - enemy->startY) > enemy->patrolRange) {
+                        enemy->speedY *= -1.0f;
+                    }
                 }
             }
         }
@@ -472,7 +495,7 @@ int main() {
                 if (currentLevel < 3) {
                     currentLevel++; 
                     score = 0; 
-                    generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture);
+                    generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture);
                     player.resetPosition(sf::Vector2f(100.0f, 400.0f)); 
                     platformJumpVelocity = 0.0f;
                     bullets.clear();
@@ -484,7 +507,7 @@ int main() {
             }
         }
 
-        // Zemin çarpışma kontrolü
+        // Zemin Çarpışması
         sf::FloatRect groundBounds = ground.getGlobalBounds();
         if (playerBounds.position.x < groundBounds.position.x + groundBounds.size.x &&
             playerBounds.position.x + playerBounds.size.x > groundBounds.position.x &&
@@ -502,7 +525,7 @@ int main() {
             }
         }
 
-        // Platform çarpışma kontrolü
+        // Platform Çarpışması
         for (const auto& platform : platforms) {
             sf::FloatRect platBounds = platform.getGlobalBounds();
             if (playerBounds.position.x < platBounds.position.x + platBounds.size.x &&
@@ -522,25 +545,29 @@ int main() {
             }
         }
 
-        // Mermi döngüsü
+        // Mermi & Canavar Ev Çarpışması
         for (size_t i = 0; i < bullets.size(); ) {
             bullets[i].move(sf::Vector2f(8.0f, 0.0f)); 
             bool bulletRemoved = false;
             sf::FloatRect bBounds = bullets[i].getGlobalBounds();
 
             for (size_t j = 0; j < enemies.size(); j++) {
-                sf::FloatRect eBounds = enemies[j].shape.getGlobalBounds();
-                
-                if (bBounds.position.x < eBounds.position.x + eBounds.size.x &&
-                    bBounds.position.x + bBounds.size.x > eBounds.position.x &&
-                    bBounds.position.y < eBounds.position.y + eBounds.size.y &&
-                    bBounds.position.y + bBounds.size.y > eBounds.position.y) {
+                if (enemies[j] && enemies[j]->sprite) {
+                    sf::FloatRect eBounds = enemies[j]->sprite->getGlobalBounds();
                     
-                    enemies.erase(enemies.begin() + j); 
-                    bullets.erase(bullets.begin() + i); 
-                    score += 20; 
-                    bulletRemoved = true;
-                    break;
+                    if (bBounds.position.x < eBounds.position.x + eBounds.size.x &&
+                        bBounds.position.x + bBounds.size.x > eBounds.position.x &&
+                        bBounds.position.y < eBounds.position.y + eBounds.size.y &&
+                        bBounds.position.y + bBounds.size.y > eBounds.position.y) {
+                        
+                        delete enemies[j]->sprite; 
+                        delete enemies[j];        
+                        enemies.erase(enemies.begin() + j); 
+                        bullets.erase(bullets.begin() + i); 
+                        score += 20; 
+                        bulletRemoved = true;
+                        break;
+                    }
                 }
             }
 
@@ -553,32 +580,34 @@ int main() {
             }
         }
 
-        // Hasar alma döngüsü
+        // Oyuncu & Canavar Ev Temas Testi
         for (const auto& enemy : enemies) {
-            sf::FloatRect eBounds = enemy.shape.getGlobalBounds();
-            if (playerBounds.position.x < eBounds.position.x + eBounds.size.x &&
-                playerBounds.position.x + playerBounds.size.x > eBounds.position.x &&
-                playerBounds.position.y < eBounds.position.y + eBounds.size.y &&
-                playerBounds.position.y + playerBounds.size.y > eBounds.position.y) {
-                
-                health--; 
-                score = 0; 
-                generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture); 
-                player.resetPosition(sf::Vector2f(100.0f, 400.0f)); 
-                bullets.clear();
-                if (health <= 0) isGameOver = true; 
-                break;
+            if (enemy && enemy->sprite) {
+                sf::FloatRect eBounds = enemy->sprite->getGlobalBounds();
+                if (playerBounds.position.x < eBounds.position.x + eBounds.size.x &&
+                    playerBounds.position.x + playerBounds.size.x > eBounds.position.x &&
+                    playerBounds.position.y < eBounds.position.y + eBounds.size.y &&
+                    playerBounds.position.y + playerBounds.size.y > eBounds.position.y) {
+                    
+                    health--; 
+                    score = 0; 
+                    generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture); 
+                    player.resetPosition(sf::Vector2f(100.0f, 400.0f)); 
+                    bullets.clear();
+                    if (health <= 0) isGameOver = true; 
+                    break;
+                }
             }
         }
 
-        // Altınları toplama döngüsü
+        // Altın Toplama
         for (size_t i = 0; i < coins.size(); ) {
             sf::FloatRect cBounds = coins[i].bounds;
             if (!coins[i].isCollected && 
                 playerBounds.position.x < cBounds.position.x + cBounds.size.x &&
                 playerBounds.position.x + playerBounds.size.x > cBounds.position.x &&
                 playerBounds.position.y < cBounds.position.y + cBounds.size.y &&
-                playerBounds.position.y + playerBounds.size.y > cBounds.position.y) {
+                playerBounds.position.y + playerBounds.size.y > cBounds.position.y) { 
                 
                 delete coins[i].sprite; 
                 coins.erase(coins.begin() + i); 
@@ -588,7 +617,6 @@ int main() {
             }
         }
 
-        // RETRO ARAYÜZ METİN YAPISI
         std::string uiStr = "LEVEL: " + std::to_string(currentLevel) + "\n" +
                             "SCORE: " + std::to_string(score);
         
@@ -597,7 +625,7 @@ int main() {
         float uiBaseY = 20.0f;
         uiText.setPosition(sf::Vector2f(uiBaseX, uiBaseY));
 
-        // --- EKRANA ÇİZİM AŞAMALARI ---
+        // --- DRAW ---
         window.clear(sf::Color::Black); 
         
         if (hasBg && bgWidth > 0.0f) {
@@ -607,7 +635,11 @@ int main() {
         window.draw(ground);            
         window.draw(levelGate); 
         
-        for (const auto& enemy : enemies) window.draw(enemy.shape);
+        for (const auto& enemy : enemies) {
+            if (enemy && enemy->sprite) {
+                window.draw(*(enemy->sprite)); 
+            }
+        }
         for (const auto& b : bullets) window.draw(b);
         for (const auto& platform : platforms) window.draw(platform);
         
@@ -626,7 +658,6 @@ int main() {
         if (hasHeartImg) {
             float startHeartX = uiBaseX;    
             float heartY = uiBaseY + 74.0f; 
-            
             for (int i = 0; i < health; i++) {
                 heartSprite.setPosition(sf::Vector2f(startHeartX + (i * 38.0f), heartY)); 
                 window.draw(heartSprite);
@@ -634,12 +665,16 @@ int main() {
         }
         
         window.display();           
-    } // 'while (window.isOpen())' dongusunun kapanisi
+    } 
 
-    // Temizlik
+    // Bellek temizliği
     for (auto& c : coins) {
         delete c.sprite;
     }
+    for (auto& e : enemies) {
+        if (e && e->sprite) delete e->sprite;
+        delete e;
+    }
 
     return 0;
-} // 'int main()' fonksiyonunun kapanisi
+}
