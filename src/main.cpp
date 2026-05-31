@@ -7,7 +7,8 @@
 #include <cstdlib> 
 #include <ctime>
 
-// --- MAC OS İÇİN OTOMATİK DİZİN BULUCU ---
+// --- MAC OS DİZİN AYARI ---
+// Mac kullananlar için assets klasörünün yerini otomatik bulan fonksiyonum.
 #include <filesystem>
 std::string getResourcePath(const std::string& filename) {
     if (std::filesystem::exists("assets/" + filename)) {
@@ -19,39 +20,46 @@ std::string getResourcePath(const std::string& filename) {
     return "assets/" + filename; 
 }
 
-// --- OYUN NESNELERİNİN YAPILARI ---
+// --- OYUN NESNELERİNİN YAPILARI (STRUCTS) ---
+
+// Haritaya ekleyeceğim düşmanların yapısal özelliklerini burada topladım.
 struct CustomEnemy {
-    sf::Sprite* sprite;      
-    int type;                
-    float speedX;
-    float speedY;
-    float startX;
-    float startY;
-    float patrolRange;
+    sf::Sprite* sprite;      // Düşmanın ekrandaki görseli
+    int type;                // 0 ise sağ-sol devriyesi, 1 ise yukarı-aşağı devriyesi
+    float speedX;            // X eksenindeki hız vektörü
+    float speedY;            // Y eksenindeki hız vektörü
+    float startX;            // İlk doğduğu X koordinatı (Devriye sınırı için)
+    float startY;            // İlk doğduğu Y koordinatı
+    float patrolRange;       // Doğduğu yerden ne kadar uzağa gidip döneceği (Menzil)
 };
 
+// Toplanabilir altınların yapısı
 struct GoldCoin {
-    sf::Sprite* sprite; 
-    sf::FloatRect bounds; 
-    bool isCollected;   
+    sf::Sprite* sprite;      // Altının görseli
+    sf::FloatRect bounds;    // Çarpışma kutusu (Karakterin temasını yakalamak için)
+    bool isCollected;        // Altın toplandı mı toplanmadı mı kontrolü
 };
 
+// Oyun kazanıldığında ekrandan aşağı dökülecek konfetilerin yapısı
 struct Confetti {
-    sf::RectangleShape shape;
-    float speedX;
-    float speedY;
-    float rotationSpeed;
+    sf::RectangleShape shape; // Küçük renkli kareler
+    float speedX;            // Sağa sola savrulma hızı
+    float speedY;            // Aşağı düşme hızı
+    float rotationSpeed;     // Kendi etrafında dönme hızı
 };
 
-// --- OYUN DURUMU (STATE) TANIMLAMASI ---
+// --- OYUN AKIŞ DURUMLARI (STATE MACHINE) ---
+// Oyunun hangi ekranda olduğunu yönetmek için enum yapısı kurdum.
 enum class GameState {
-    START_MENU,
-    GAMEPLAY
+    START_MENU, // İlk açılıştaki ana menü ekranı
+    GAMEPLAY    // Aktif olarak oynadığımız oyun ekranı
 };
 
-// --- BÖLÜM TASARIM MOTORU ---
+// --- BÖLÜM TASARIM MOTORU (LEVEL GENERATOR) ---
+// Seviyeleri milimetrik olarak tasarladığım, platformları ve nesneleri dizen fonksiyonum.
 void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, std::vector<CustomEnemy*>& enemies, std::vector<GoldCoin>& coins, sf::Sprite& levelGate, const sf::Texture& goldTexture, const sf::Texture& enemyTexture, const sf::Texture& blockTexture) {
     
+    // Yeni levele geçerken eski levelden kalan dinamik bellekleri temizliyorum (Memory Leak önlemi).
     for (auto& c : coins) delete c.sprite;
     for (auto& e : enemies) {
         if (e && e->sprite) delete e->sprite;
@@ -59,19 +67,21 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
     }
     platforms.clear(); enemies.clear(); coins.clear();
 
-    // --- LEVEL 1 ---
+    // --- BÖLÜM 1 TASARIMI ---
     if (level == 1) {
+        // Havada asılı duracak platformların koordinatlarını belirliyorum
         std::vector<sf::Vector2f> platPositions = {
-            {250.0f, 450.0f}, {450.0f, 420.0f}, {700.0f, 460.0f}, 
-            {950.0f, 430.0f}, {1200.0f, 400.0f}, {1450.0f, 450.0f}
+            {250.0f, 420.0f}, {450.0f, 390.0f}, {700.0f, 430.0f}, 
+            {950.0f, 400.0f}, {1200.0f, 370.0f}, {1450.0f, 420.0f}
         };
         for (const auto& pos : platPositions) {
             sf::RectangleShape plat(sf::Vector2f(140.0f, 24.0f)); 
             plat.setPosition(pos);
-            plat.setTexture(&blockTexture);
+            plat.setTexture(&blockTexture); // Platform dokusunu giydiriyorum
             platforms.push_back(plat);
         }
 
+        // İlk düşmanı yatay devriye (type = 0) olarak haritaya ekliyorum
         CustomEnemy* e1 = new CustomEnemy(); e1->type = 0; 
         e1->sprite = new sf::Sprite(enemyTexture);
         e1->sprite->setScale(sf::Vector2f(0.15f, 0.15f)); 
@@ -80,6 +90,7 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         e1->speedX = 3.0f; e1->speedY = 0.0f; e1->patrolRange = 100.0f;
         enemies.push_back(e1);
 
+        // İkinci düşmanı da ters yönde hareket edecek şekilde kuruyorum
         CustomEnemy* e2 = new CustomEnemy(); e2->type = 0; 
         e2->sprite = new sf::Sprite(enemyTexture);
         e2->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
@@ -88,10 +99,11 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         e2->speedX = -2.5f; e2->speedY = 0.0f; e2->patrolRange = 80.0f;
         enemies.push_back(e2);
     } 
+    // --- BÖLÜM 2 TASARIMI ---
     else if (level == 2) {
         std::vector<sf::Vector2f> platPositions = {
-            {200.0f, 480.0f}, {380.0f, 390.0f}, {550.0f, 320.0f}, 
-            {750.0f, 420.0f}, {980.0f, 350.0f}, {1200.0f, 460.0f}
+            {200.0f, 450.0f}, {380.0f, 360.0f}, {550.0f, 290.0f}, 
+            {750.0f, 390.0f}, {980.0f, 320.0f}, {1200.0f, 430.0f}
         };
         for (const auto& pos : platPositions) {
             sf::RectangleShape plat(sf::Vector2f(120.0f, 24.0f)); 
@@ -100,6 +112,7 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
             platforms.push_back(plat);
         }
 
+        // Level 2'ye yukarı-aşağı uçan dikey bir düşman (type = 1) ekleyerek zorluğu artırıyorum
         CustomEnemy* e1 = new CustomEnemy(); e1->type = 1; 
         e1->sprite = new sf::Sprite(enemyTexture);
         e1->sprite->setScale(sf::Vector2f(0.15f, 0.15f));
@@ -124,11 +137,12 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         e3->speedX = 2.0f; e3->speedY = 0.0f; e3->patrolRange = 60.0f;
         enemies.push_back(e3);
     } 
+    // --- BÖLÜM 3 TASARIMI ---
     else if (level == 3) {
         std::vector<sf::Vector2f> platPositions = {
-            {150.0f, 450.0f}, {320.0f, 360.0f}, {500.0f, 420.0f},
-            {700.0f, 350.0f}, {900.0f, 440.0f}, {1100.0f, 380.0f},
-            {1300.0f, 460.0f}, {1500.0f, 400.0f} 
+            {150.0f, 420.0f}, {320.0f, 330.0f}, {500.0f, 390.0f},
+            {700.0f, 320.0f}, {900.0f, 410.0f}, {1100.0f, 350.0f},
+            {1300.0f, 430.0f}, {1500.0f, 370.0f} 
         };
         for (const auto& pos : platPositions) {
             sf::RectangleShape plat(sf::Vector2f(110.0f, 24.0f)); 
@@ -190,15 +204,16 @@ void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, s
         coins.push_back(coin);
     }
 
+    // BAYRAK HİZALAMASI: Şeffaf boşluğu yok etmek için bayrağı çimen yüzeyine tam oturtuyoruz
     sf::FloatRect gateBounds = levelGate.getLocalBounds();
     levelGate.setOrigin(sf::Vector2f(gateBounds.size.x / 2.0f, gateBounds.size.y)); 
-    levelGate.setPosition(sf::Vector2f(platforms.back().getPosition().x + 280.0f, 536.0f)); 
+    levelGate.setPosition(sf::Vector2f(platforms.back().getPosition().x + 280.0f, 555.0f)); 
 }
 
+// --- ANA FONKSİYON (MAIN) ---
 int main() {
     std::srand(static_cast<unsigned int>(std::time(nullptr))); 
 
-    // 1. PENCERE VE SİSTEM AYARLARI
     sf::RenderWindow window(sf::VideoMode(sf::Vector2u(800, 600)), "Platform Kosucu", sf::Style::Titlebar | sf::Style::Close);
     window.setFramerateLimit(60); 
 
@@ -206,11 +221,11 @@ int main() {
 
     GameState currentState = GameState::START_MENU;
 
-    // --- FONT YÜKLEME ---
+    // --- FONT VE YAZI TİPİ AYARLARI ---
     sf::Font font;
     if (!font.openFromFile(getResourcePath("pixel.ttf"))) {
         if (!font.openFromFile("/System/Library/Fonts/Supplemental/Arial.ttf")) {
-            (void)font.openFromFile("Courier.dfont");
+            (void)font.openFromFile("Courier.dfont"); 
         }
     }
        
@@ -237,7 +252,7 @@ int main() {
     menuSub.setOrigin(sf::Vector2f(msBounds.size.x / 2.0f, msBounds.size.y / 2.0f));
     menuSub.setPosition(sf::Vector2f(400.0f, 340.0f));
 
-    // --- TÜM TEXTURE TANIMLAMALARI ---
+    // --- GÖRSEL (TEXTURE) YÜKLEMELERİ ---
     sf::Texture goldTexture, enemyTexture, cupTexture, flagTexture, blockTexture, groundTexture, gameOverTexture, heartTexture;
 
     (void)goldTexture.loadFromFile(getResourcePath("gold.png"));
@@ -268,23 +283,21 @@ int main() {
         heartSprite.setScale(sf::Vector2f(0.06f, 0.06f));
     }
 
-    // --- DİP DİBE VE KÜÇÜLTÜLMÜŞ TILE MOTORU ---
+    // --- KESİNTİSİZ MAKSIMUM SIKIŞTIRILMIŞ ULTRA SIKI ZEMİN MOTORU ---
     std::vector<sf::Sprite> groundTiles;
-    float tileWidth = static_cast<float>(groundTexture.getSize().x); 
-    if (tileWidth <= 0.0f) tileWidth = 800.0f; 
-
     float currentScale = 0.35f;
-    float scaledWidth = tileWidth * currentScale;
+    // DÜZELTME: Görselin sağ ve solundaki tüm hayali boşluk şeritlerini sıfırlamak için aralığı tam 98.0f'e çektik kanka!
+    float scaledWidth = 98.0f; 
 
-    int tileCount = (12000 / static_cast<int>(scaledWidth)) + 5; 
+    int tileCount = static_cast<int>(12000.0f / scaledWidth) + 5; 
     for (int i = 0; i < tileCount; ++i) {
         sf::Sprite tile(groundTexture);
         tile.setScale(sf::Vector2f(currentScale, currentScale)); 
-        tile.setPosition(sf::Vector2f(i * scaledWidth, 536.0f)); 
+        tile.setPosition(sf::Vector2f(static_cast<float>(i) * scaledWidth, 530.0f)); 
         groundTiles.push_back(tile);
     }
 
-    // --- UI METİNLERİ ---
+    // --- ARAYÜZ (UI) METİNLERİ ---
     sf::Color deepBordoPink(139, 0, 70); 
     sf::Text uiText(font);
     uiText.setCharacterSize(28); 
@@ -296,7 +309,6 @@ int main() {
     centerText.setStyle(sf::Text::Bold);
     centerText.setString("GAME OVER");
 
-    // GAME OVER RESET BILGILENDIRME METNI
     sf::Text gameOverRestartText(font);
     gameOverRestartText.setCharacterSize(26);
     gameOverRestartText.setFillColor(sf::Color::White);
@@ -321,7 +333,7 @@ int main() {
     warningText.setFillColor(sf::Color(0, 0, 102)); 
     warningText.setString("KAPI ICIN 60 PUAN GEREKLI!");
 
-    // --- PARALLAX BACKGROUND ---
+    // --- ARKA PLAN VE PARALLAX KODLARI ---
     sf::RectangleShape softYellowBg(sf::Vector2f(800.0f, 600.0f));
     softYellowBg.setFillColor(sf::Color(255, 255, 204)); 
 
@@ -338,7 +350,7 @@ int main() {
         bgWidth = bgTexture.getSize().x * bgScaleY;
     }
 
-    // --- NESNE VEKTÖRLERİ ---
+    // --- DİNAMİK NESNE VEKTÖRLERİ VE OYUN DEĞİŞKENLERİ ---
     std::vector<sf::RectangleShape> platforms;
     std::vector<CustomEnemy*> enemies; 
     std::vector<GoldCoin> coins; 
@@ -355,15 +367,15 @@ int main() {
     sf::FloatRect playerBounds = player.getBounds();
 
     std::vector<sf::CircleShape> bullets; 
-    sf::Clock shootClock; 
-    float shootCooldown = 0.25f; 
+    sf::Clock shootClock;         
+    float shootCooldown = 0.25f;  
 
     int score = 0;
     int health = 5; 
     bool isGameOver = false; 
     bool isGameWon = false;
     bool showWarning = false;
-    float platformJumpVelocity = 0.0f;
+    float platformJumpVelocity = 0.0f; 
 
     // --- ANA OYUN DÖNGÜSÜ ---
     while (window.isOpen()) {
@@ -371,7 +383,7 @@ int main() {
             if (event->is<sf::Event::Closed>()) window.close();
         }
 
-        // --- 1. DURUM: BAŞLANGIÇ MENÜSÜ ---
+        // --- 1. DURUM: BAŞLANGIÇ MENÜSÜ MANTIĞI ---
         if (currentState == GameState::START_MENU) {
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R)) {
                 currentState = GameState::GAMEPLAY;
@@ -386,10 +398,10 @@ int main() {
             continue; 
         }
 
-        // --- 2. DURUM: OYUN İÇİ (GAMEPLAY) ---
-        // --- GAME OVER ---
+        // --- 2. DURUM: OYUN İÇİ (GAMEPLAY) MANTIĞI ---
+        
+        // --- GAME OVER EKRANI ---
         if (isGameOver) {
-            // GAME OVER KONTROLÜ: Oyuncu R'ye basarsa tüm istatistikleri sıfırla ve menüye at
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R)) {
                 isGameOver = false;
                 health = 5;
@@ -398,7 +410,7 @@ int main() {
                 generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture, blockTexture);
                 player.resetPosition(sf::Vector2f(100.0f, 350.0f));
                 bullets.clear();
-                currentState = GameState::START_MENU; // Menüye geri dön
+                currentState = GameState::START_MENU; 
                 continue;
             }
 
@@ -413,19 +425,18 @@ int main() {
             centerText.setOrigin(sf::Vector2f(textBounds.size.x / 2.0f, textBounds.size.y / 2.0f));
             centerText.setPosition(sf::Vector2f(400.0f, 400.0f)); 
 
-            // Yeniden başlama metnini beyaz yapıp tam orta alta hizalıyoruz
             sf::FloatRect gorBounds = gameOverRestartText.getLocalBounds();
             gameOverRestartText.setOrigin(sf::Vector2f(gorBounds.size.x / 2.0f, gorBounds.size.y / 2.0f));
             gameOverRestartText.setPosition(sf::Vector2f(400.0f, 480.0f));
             
             window.draw(gameOverSprite);
             window.draw(centerText);
-            window.draw(gameOverRestartText); // Beyaz metin çizilir
+            window.draw(gameOverRestartText); 
             window.display();
             continue; 
         }
 
-        // --- KAZANMA ---
+        // --- KAZANMA EKRANI ---
         if (isGameWon) {
             window.setView(window.getDefaultView()); 
             if (confettis.size() < 150) {
@@ -441,7 +452,7 @@ int main() {
                 if (c.shape.getPosition().y > 600.0f) c.shape.setPosition(sf::Vector2f(static_cast<float>(std::rand() % 800), -10.0f));
             }
        
-            window.clear(sf::Color(255, 255, 204));
+            window.clear(sf::Color(255, 255, 204)); 
             
             sf::FloatRect bounds1 = winText1.getLocalBounds();
             winText1.setOrigin(sf::Vector2f(bounds1.size.x / 2.0f, bounds1.size.y / 2.0f));
@@ -464,7 +475,7 @@ int main() {
             continue;
         }
 
-        // --- TUŞ GİRDİLERİ VE KLAVYE ---
+        // --- GİRDİLER VE KLAVYE KONTROLLERİ ---
         bool moveLeft = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A);
         bool moveRight = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D);
         bool isFiring = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::F);
@@ -479,7 +490,7 @@ int main() {
             newBullet.setFillColor(sf::Color::Yellow); 
             newBullet.setPosition(sf::Vector2f(currentPos.x + player.getBounds().size.x, currentPos.y - 40.0f));
             bullets.push_back(newBullet);
-            shootClock.restart();
+            shootClock.restart(); 
         }
 
         if (platformJumpVelocity < 0.0f) {
@@ -489,10 +500,10 @@ int main() {
         }
 
         player.resetPosition(currentPos);
-        player.update(moveLeft, moveRight, isFiring);
+        player.update(moveLeft, moveRight, isFiring); 
         playerBounds = player.getBounds(); 
 
-        // KAMERA MERKEZLEME
+        // --- KAMERA MERKEZLEME ---
         float playerX = playerBounds.position.x;
         if (playerX > 400.0f) camera.setCenter(sf::Vector2f(playerX, 300.0f));
         else camera.setCenter(sf::Vector2f(400.0f, 300.0f));
@@ -504,7 +515,7 @@ int main() {
             bgSprite2.setPosition(sf::Vector2f(camera.getCenter().x - 400.0f - offset + bgWidth, 0.0f));
         }
 
-        // DÜŞMAN AI YAPISI
+        // --- DÜŞMAN YAPAY ZEKASI ---
         for (auto& enemy : enemies) {
             if (enemy && enemy->sprite) {
                 if (enemy->type == 0) { 
@@ -517,12 +528,13 @@ int main() {
             }
         }
 
-        // BÖLÜM GEÇİŞ TETİKLEYİCİSİ
+        // --- BÖLÜM GEÇİŞ VE KAPI KONTROLÜ ---
         showWarning = false; sf::FloatRect gateBounds = levelGate.getGlobalBounds();
         if (playerBounds.position.x - (playerBounds.size.x / 2.0f) < gateBounds.position.x + gateBounds.size.x && 
             playerBounds.position.x + (playerBounds.size.x / 2.0f) > gateBounds.position.x && 
             playerBounds.position.y - playerBounds.size.y < gateBounds.position.y + gateBounds.size.y && 
             playerBounds.position.y > gateBounds.position.y) {
+            
             if (score >= 60) { 
                 if (currentLevel < 3) {
                     currentLevel++; score = 0; 
@@ -531,45 +543,45 @@ int main() {
                     platformJumpVelocity = 0.0f; 
                     bullets.clear();
                     continue; 
-                } else isGameWon = true;
-            } else showWarning = true;
+                } else isGameWon = true; 
+            } else showWarning = true; 
         }
 
-        // --- MİLİMETRİK VE SABİT TILE FİZİK MOTORU ---
+        // --- MİLİMETRİK ÇİMEN ZEMİN ÇARPIŞMA VE OFFSET KİLİTLEMESİ ---
         for (const auto& tile : groundTiles) {
             sf::FloatRect tileBounds = tile.getGlobalBounds();
             if (playerBounds.position.x - (playerBounds.size.x / 2.0f) < tileBounds.position.x + tileBounds.size.x && 
                 playerBounds.position.x + (playerBounds.size.x / 2.0f) > tileBounds.position.x && 
-                playerBounds.position.y - playerBounds.size.y < tileBounds.position.y + tileBounds.size.y && 
-                playerBounds.position.y > tileBounds.position.y) {
+                playerBounds.position.y <= tileBounds.position.y + 35.0f && 
+                playerBounds.position.y >= tileBounds.position.y - 10.0f) {
                 
-                if (playerBounds.position.y <= tileBounds.position.y + 14.0f) {
-                    player.resetPosition(sf::Vector2f(playerBounds.position.x, tileBounds.position.y));
+                if (platformJumpVelocity >= 0.0f) {
+                    player.resetPosition(sf::Vector2f(playerBounds.position.x, tileBounds.position.y + 25.0f));
                     playerBounds = player.getBounds(); 
                     if (jumpKeyPressed) platformJumpVelocity = -14.5f; 
-                    else if (platformJumpVelocity > 0.0f) platformJumpVelocity = 0.0f;
+                    else platformJumpVelocity = 0.0f;
                 }
             }
         }
 
-        // PLATFORM ÇARPIŞMALARI
+        // --- ASILI PLATFORM KİLİTLEMESİ ---
         for (const auto& platform : platforms) {
             sf::FloatRect platBounds = platform.getGlobalBounds();
             if (playerBounds.position.x - (playerBounds.size.x / 2.0f) < platBounds.position.x + platBounds.size.x && 
                 playerBounds.position.x + (playerBounds.size.x / 2.0f) > platBounds.position.x && 
-                playerBounds.position.y - playerBounds.size.y < platBounds.position.y + platBounds.size.y && 
-                playerBounds.position.y > platBounds.position.y) {
+                playerBounds.position.y <= platBounds.position.y + 10.0f && 
+                playerBounds.position.y >= platBounds.position.y - 20.0f) {
                 
-                if (playerBounds.position.y <= platBounds.position.y + 14.0f) {
+                if (platformJumpVelocity >= 0.0f) {
                     player.resetPosition(sf::Vector2f(playerBounds.position.x, platBounds.position.y));
                     playerBounds = player.getBounds(); 
                     if (jumpKeyPressed) platformJumpVelocity = -14.5f; 
-                    else if (platformJumpVelocity > 0.0f) platformJumpVelocity = 0.0f;
+                    else platformJumpVelocity = 0.0f;
                 }
             }
         }
 
-        // MERMİ FIRLATMA VE TEMAS KONTROLÜ
+        // --- MERMİ HAREKETLERİ ---
         for (size_t i = 0; i < bullets.size(); ) {
             bullets[i].move(sf::Vector2f(8.0f, 0.0f)); bool bulletRemoved = false;
             sf::FloatRect bBounds = bullets[i].getGlobalBounds();
@@ -587,7 +599,7 @@ int main() {
             }
         }
 
-        // HASAR VE RESET SİSTEMİ
+        // --- DÜŞMAN TEMASI ---
         for (const auto& enemy : enemies) {
             if (enemy && enemy->sprite) {
                 sf::FloatRect eBounds = enemy->sprite->getGlobalBounds();
@@ -595,7 +607,9 @@ int main() {
                     playerBounds.position.x + (playerBounds.size.x / 2.0f) > eBounds.position.x && 
                     playerBounds.position.y - playerBounds.size.y < eBounds.position.y + eBounds.size.y && 
                     playerBounds.position.y > eBounds.position.y) {
-                    health--; score = 0; generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture, blockTexture); 
+                    
+                    health--; score = 0; 
+                    generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture, blockTexture); 
                     player.resetPosition(sf::Vector2f(100.0f, 350.0f)); 
                     bullets.clear();
                     if (health <= 0) isGameOver = true; 
@@ -604,7 +618,7 @@ int main() {
             }
         }
 
-        // COIN KONTROLÜ
+        // --- ALTIN TOPLAMA ---
         for (size_t i = 0; i < coins.size(); ) {
             sf::FloatRect cBounds = coins[i].bounds;
             if (!coins[i].isCollected && 
@@ -612,6 +626,7 @@ int main() {
                 playerBounds.position.x + (playerBounds.size.x / 2.0f) > cBounds.position.x && 
                 playerBounds.position.y - playerBounds.size.y < cBounds.position.y + cBounds.size.y && 
                 playerBounds.position.y > cBounds.position.y) { 
+                
                 delete coins[i].sprite; coins.erase(coins.begin() + i); score += 10; 
             } else i++;
         }
@@ -650,7 +665,7 @@ int main() {
         window.display();           
     }  
 
-    // BELLEK TEMİZLİĞİ
+    // --- BELLEK TEMİZLİĞİ ---
     for (auto& c : coins) delete c.sprite;
     for (auto& e : enemies) { if (e && e->sprite) delete e->sprite; delete e; }
     return 0;   
