@@ -1,4 +1,5 @@
 #include <SFML/Graphics.hpp>
+#include <SFML/Audio.hpp> // Ses motoru, arka plan müzikleri ve anlık ses efektleri için kütüphanemiz
 #include "Player.hpp"
 #include <string> 
 #include <vector> 
@@ -51,7 +52,7 @@ struct Confetti {
 // --- OYUN AKIŞ DURUMLARI (STATE MACHINE) ---
 // Oyunun hangi ekranda olduğunu yönetmek için enum yapısı kurdum.
 enum class GameState {
-    START_MENU, // İlk açılıştaki ana menü ekranı
+    START_MENU, // İlk açılıştaki ana menu ekranı
     GAMEPLAY    // Aktif olarak oynadığımız oyun ekranı
 };
 
@@ -217,9 +218,59 @@ int main() {
     sf::RenderWindow window(sf::VideoMode(sf::Vector2u(800, 600)), "Platform Kosucu", sf::Style::Titlebar | sf::Style::Close);
     window.setFramerateLimit(60); 
 
+    // --- DEĞİŞKEN TANIMLAMALARI ---
+    GameState currentState = GameState::START_MENU;
+    int currentLevel = 1;
+    int score = 0;
+    int health = 5; 
+    bool isGameOver = false; 
+    bool isGameWon = false;
+    bool showWarning = false;
+    float platformJumpVelocity = 0.0f; 
+    bool playedLoseSound = false;
+    bool playedWinSound = false;
+
     sf::View camera(sf::FloatRect(sf::Vector2f(0.0f, 0.0f), sf::Vector2f(800.0f, 600.0f)));
 
-    GameState currentState = GameState::START_MENU;
+    // --- ARKA PLAN MÜZİĞİ SİSTEMİ ---
+    sf::Music gameMusic;
+    bool hasMusic = false;
+    
+    if (gameMusic.openFromFile(getResourcePath("music.ogg"))) {
+        hasMusic = true;
+    } else if (gameMusic.openFromFile(getResourcePath("music.wav"))) {
+        hasMusic = true;
+    }
+
+    if (hasMusic) {
+        gameMusic.setLooping(true); 
+        gameMusic.setVolume(40.0f); 
+        gameMusic.play();           
+    } else {
+        std::cout << "BILGI: Muzik dosyasi bulunamadi veya yuklenemedi, oyun sessiz modda baslatiliyor." << std::endl;
+    }
+
+    // --- ANLIK SES EFEKTLERİ MOTORU GÜVENLİ KONTROLÜ ---
+    sf::SoundBuffer jumpBuffer, coinBuffer, hitBuffer, winBuffer, loseBuffer;
+    bool hasJump = jumpBuffer.loadFromFile(getResourcePath("jump.wav"));
+    bool hasCoin = coinBuffer.loadFromFile(getResourcePath("coin.wav"));
+    bool hasHit = hitBuffer.loadFromFile(getResourcePath("hit.wav"));
+    bool hasWin = winBuffer.loadFromFile(getResourcePath("win.wav"));
+    bool hasLose = loseBuffer.loadFromFile(getResourcePath("lose.wav"));
+// 1. Ses nesnelerini tanımlarken buffer'ları doğrudan constructor'a veriyoruz
+sf::Sound jumpSound(jumpBuffer);
+sf::Sound coinSound(coinBuffer);
+sf::Sound hitSound(hitBuffer);
+sf::Sound winSound(winBuffer);
+sf::Sound loseSound(loseBuffer);
+
+
+    // Ses düzeylerini ayarlıyoruz
+    if (hasJump) jumpSound.setVolume(50.0f);
+    if (hasCoin) coinSound.setVolume(60.0f);
+    if (hasHit)  hitSound.setVolume(50.0f);
+    if (hasWin)  winSound.setVolume(60.0f);
+    if (hasLose) loseSound.setVolume(60.0f);
 
     // --- FONT VE YAZI TİPİ AYARLARI ---
     sf::Font font;
@@ -238,7 +289,7 @@ int main() {
     menuTitle.setCharacterSize(64);
     menuTitle.setFillColor(lacivert);
     menuTitle.setStyle(sf::Text::Bold);
-    menuTitle.setString("BAT-SHOOTER");
+    menuTitle.setString("VESPERA");
     sf::FloatRect mtBounds = menuTitle.getLocalBounds();
     menuTitle.setOrigin(sf::Vector2f(mtBounds.size.x / 2.0f, mtBounds.size.y / 2.0f));
     menuTitle.setPosition(sf::Vector2f(400.0f, 220.0f));
@@ -263,7 +314,7 @@ int main() {
     (void)gameOverTexture.loadFromFile(getResourcePath("game_over.png"));
     
     if (!groundTexture.loadFromFile(getResourcePath("grass_block.png"))) {
-        std::cout << "HATA: Zemin yüklenemedi!" << std::endl;
+        std::cout << "HATA: Zemin yuklenemedi!" << std::endl;
     }
 
     bool hasHeartImg = heartTexture.loadFromFile(getResourcePath("pixel_heart.png"));
@@ -283,10 +334,9 @@ int main() {
         heartSprite.setScale(sf::Vector2f(0.06f, 0.06f));
     }
 
-    // --- KESİNTİSİZ MAKSIMUM SIKIŞTIRILMIŞ ULTRA SIKI ZEMİN MOTORU ---
+    // --- SIFIR BOŞLUKLU ULTRA SIKI ZEMİN MOTORU ---
     std::vector<sf::Sprite> groundTiles;
     float currentScale = 0.35f;
-    // DÜZELTME: Görselin sağ ve solundaki tüm hayali boşluk şeritlerini sıfırlamak için aralığı tam 98.0f'e çektik kanka!
     float scaledWidth = 98.0f; 
 
     int tileCount = static_cast<int>(12000.0f / scaledWidth) + 5; 
@@ -350,7 +400,7 @@ int main() {
         bgWidth = bgTexture.getSize().x * bgScaleY;
     }
 
-    // --- DİNAMİK NESNE VEKTÖRLERİ VE OYUN DEĞİŞKENLERİ ---
+    // --- DİNAMİK NESNE VEKTÖRLERİ ---
     std::vector<sf::RectangleShape> platforms;
     std::vector<CustomEnemy*> enemies; 
     std::vector<GoldCoin> coins; 
@@ -360,7 +410,6 @@ int main() {
         sf::Color(50,205,50), sf::Color(255,69,0)
     };
 
-    int currentLevel = 1;
     generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture, blockTexture);
 
     Player player(sf::Vector2f(85.0f, 130.0f), sf::Vector2f(100.0f, 350.0f));
@@ -370,23 +419,22 @@ int main() {
     sf::Clock shootClock;         
     float shootCooldown = 0.25f;  
 
-    int score = 0;
-    int health = 5; 
-    bool isGameOver = false; 
-    bool isGameWon = false;
-    bool showWarning = false;
-    float platformJumpVelocity = 0.0f; 
-
     // --- ANA OYUN DÖNGÜSÜ ---
     while (window.isOpen()) {
+        // SFML 3.0 UYUMLU MODERN EVENT DÖNGÜSÜ
         while (const std::optional event = window.pollEvent()) {
-            if (event->is<sf::Event::Closed>()) window.close();
+            if (event->is<sf::Event::Closed>()) {
+                window.close();
+            }
         }
 
         // --- 1. DURUM: BAŞLANGIÇ MENÜSÜ MANTIĞI ---
         if (currentState == GameState::START_MENU) {
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R)) {
                 currentState = GameState::GAMEPLAY;
+                if (hasMusic) gameMusic.play();
+                playedLoseSound = false;
+                playedWinSound = false;
             }
 
             window.setView(window.getDefaultView());
@@ -402,6 +450,12 @@ int main() {
         
         // --- GAME OVER EKRANI ---
         if (isGameOver) {
+            if (hasMusic) gameMusic.stop();
+            if (hasLose && !playedLoseSound) {
+                loseSound.play();
+                playedLoseSound = true;
+            }
+
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R)) {
                 isGameOver = false;
                 health = 5;
@@ -438,6 +492,24 @@ int main() {
 
         // --- KAZANMA EKRANI ---
         if (isGameWon) {
+            if (hasMusic) gameMusic.stop();
+            if (hasWin && !playedWinSound) {
+                winSound.play();
+                playedWinSound = true;
+            }
+
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::R)) {
+                isGameWon = false;
+                health = 5;
+                score = 0;
+                currentLevel = 1;
+                generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture, blockTexture);
+                player.resetPosition(sf::Vector2f(100.0f, 350.0f));
+                bullets.clear();
+                currentState = GameState::START_MENU;
+                continue;
+            }
+
             window.setView(window.getDefaultView()); 
             if (confettis.size() < 150) {
                 Confetti c; c.shape.setSize(sf::Vector2f(9.0f, 9.0f)); 
@@ -558,7 +630,10 @@ int main() {
                 if (platformJumpVelocity >= 0.0f) {
                     player.resetPosition(sf::Vector2f(playerBounds.position.x, tileBounds.position.y + 25.0f));
                     playerBounds = player.getBounds(); 
-                    if (jumpKeyPressed) platformJumpVelocity = -14.5f; 
+                    if (jumpKeyPressed) {
+                        platformJumpVelocity = -14.5f; 
+                        if (hasJump) jumpSound.play(); 
+                    }
                     else platformJumpVelocity = 0.0f;
                 }
             }
@@ -568,14 +643,17 @@ int main() {
         for (const auto& platform : platforms) {
             sf::FloatRect platBounds = platform.getGlobalBounds();
             if (playerBounds.position.x - (playerBounds.size.x / 2.0f) < platBounds.position.x + platBounds.size.x && 
-                playerBounds.position.x + (playerBounds.size.x / 2.0f) > platBounds.position.x && 
+                playerBounds.position.x + (playerBounds.size.x / 2.0f) > platform.getPosition().x && 
                 playerBounds.position.y <= platBounds.position.y + 10.0f && 
                 playerBounds.position.y >= platBounds.position.y - 20.0f) {
                 
                 if (platformJumpVelocity >= 0.0f) {
                     player.resetPosition(sf::Vector2f(playerBounds.position.x, platBounds.position.y));
                     playerBounds = player.getBounds(); 
-                    if (jumpKeyPressed) platformJumpVelocity = -14.5f; 
+                    if (jumpKeyPressed) {
+                        platformJumpVelocity = -14.5f; 
+                        if (hasJump) jumpSound.play(); 
+                    }
                     else platformJumpVelocity = 0.0f;
                 }
             }
@@ -599,7 +677,7 @@ int main() {
             }
         }
 
-        // --- DÜŞMAN TEMASI ---
+        // --- DÜŞMAN TEMASI (HASAR ALMA) ---
         for (const auto& enemy : enemies) {
             if (enemy && enemy->sprite) {
                 sf::FloatRect eBounds = enemy->sprite->getGlobalBounds();
@@ -607,6 +685,8 @@ int main() {
                     playerBounds.position.x + (playerBounds.size.x / 2.0f) > eBounds.position.x && 
                     playerBounds.position.y - playerBounds.size.y < eBounds.position.y + eBounds.size.y && 
                     playerBounds.position.y > eBounds.position.y) {
+                    
+                    if (hasHit) hitSound.play(); 
                     
                     health--; score = 0; 
                     generateFixedLevel(currentLevel, platforms, enemies, coins, levelGate, goldTexture, enemyTexture, blockTexture); 
@@ -626,6 +706,8 @@ int main() {
                 playerBounds.position.x + (playerBounds.size.x / 2.0f) > cBounds.position.x && 
                 playerBounds.position.y - playerBounds.size.y < cBounds.position.y + cBounds.size.y && 
                 playerBounds.position.y > cBounds.position.y) { 
+                
+                if (hasCoin) coinSound.play(); 
                 
                 delete coins[i].sprite; coins.erase(coins.begin() + i); score += 10; 
             } else i++;
