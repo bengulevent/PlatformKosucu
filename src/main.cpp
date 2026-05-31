@@ -9,7 +9,7 @@
 #include <ctime>
 
 // --- MAC OS DİZİN AYARI ---
-// Mac kullananlar için assets klasörünün yerini otomatik bulan fonksiyonum.
+// Mac kullananlar için assets klasörünün yerini otomatik/\ bulan fonksiyonum.
 #include <filesystem>
 std::string getResourcePath(const std::string& filename) {
     if (std::filesystem::exists("assets/" + filename)) {
@@ -57,7 +57,7 @@ enum class GameState {
 };
 
 // --- BÖLÜM TASARIM MOTORU (LEVEL GENERATOR) ---
-// Seviyeleri milimetrik olarak tasarladığım, platformları ve nesneleri dizen fonksiyonum.
+// Seviyeleri milimetrik olarak tasarlamış, platformları ve nesneleri dizen fonksiyonum.
 void generateFixedLevel(int level, std::vector<sf::RectangleShape>& platforms, std::vector<CustomEnemy*>& enemies, std::vector<GoldCoin>& coins, sf::Sprite& levelGate, const sf::Texture& goldTexture, const sf::Texture& enemyTexture, const sf::Texture& blockTexture) {
     
     // Yeni levele geçerken eski levelden kalan dinamik bellekleri temizliyorum (Memory Leak önlemi).
@@ -230,7 +230,10 @@ int main() {
     bool playedLoseSound = false;
     bool playedWinSound = false;
 
+    // Sabit 800x600 oyun içi kamera
     sf::View camera(sf::FloatRect(sf::Vector2f(0.0f, 0.0f), sf::Vector2f(800.0f, 600.0f)));
+    // Sabit 800x600 arayüz ve menü görünümü (kaymayı önlemek için)
+    sf::View uiView(sf::FloatRect(sf::Vector2f(0.0f, 0.0f), sf::Vector2f(800.0f, 600.0f)));
 
     // --- ARKA PLAN MÜZİĞİ SİSTEMİ ---
     sf::Music gameMusic;
@@ -257,13 +260,13 @@ int main() {
     bool hasHit = hitBuffer.loadFromFile(getResourcePath("hit.wav"));
     bool hasWin = winBuffer.loadFromFile(getResourcePath("win.wav"));
     bool hasLose = loseBuffer.loadFromFile(getResourcePath("lose.wav"));
-// 1. Ses nesnelerini tanımlarken buffer'ları doğrudan constructor'a veriyoruz
-sf::Sound jumpSound(jumpBuffer);
-sf::Sound coinSound(coinBuffer);
-sf::Sound hitSound(hitBuffer);
-sf::Sound winSound(winBuffer);
-sf::Sound loseSound(loseBuffer);
 
+    // Ses nesnelerini tanımlarken buffer'ları doğrudan constructor'a veriyoruz
+    sf::Sound jumpSound(jumpBuffer);
+    sf::Sound coinSound(coinBuffer);
+    sf::Sound hitSound(hitBuffer);
+    sf::Sound winSound(winBuffer);
+    sf::Sound loseSound(loseBuffer);
 
     // Ses düzeylerini ayarlıyoruz
     if (hasJump) jumpSound.setVolume(50.0f);
@@ -421,10 +424,35 @@ sf::Sound loseSound(loseBuffer);
 
     // --- ANA OYUN DÖNGÜSÜ ---
     while (window.isOpen()) {
+        
         // SFML 3.0 UYUMLU MODERN EVENT DÖNGÜSÜ
         while (const std::optional event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) {
                 window.close();
+            }
+
+            // ESC Tuşu ile Tam Ekran / Pencere Modu Geçişi (Ekran Kayması Tamamen Çözüldü!)
+            if (event->is<sf::Event::KeyPressed>()) {
+                if (const auto* keyPressed = event->getIf<sf::Event::KeyPressed>()) {
+                    if (keyPressed->code == sf::Keyboard::Key::Escape) {
+                        static bool isFullscreen = false;
+                        isFullscreen = !isFullscreen;
+
+                        if (isFullscreen) {
+                            window.create(sf::VideoMode({1920, 1080}), "Platform Runner", sf::Style::None);
+                        } else {
+                            window.create(sf::VideoMode({800, 600}), "Platform Runner", sf::Style::Default);
+                        }
+                        
+                        // Ekran oranını koruyarak kaymayı engelliyoruz
+                        camera.setSize(sf::Vector2f(800.0f, 600.0f));
+                        uiView.setSize(sf::Vector2f(800.0f, 600.0f));
+                        window.setView(camera);
+                        
+                        window.setFramerateLimit(60); 
+                        window.requestFocus();        
+                    }
+                }
             }
         }
 
@@ -437,7 +465,8 @@ sf::Sound loseSound(loseBuffer);
                 playedWinSound = false;
             }
 
-            window.setView(window.getDefaultView());
+            // Menünün tam ortada sabit kalması için uiView atıyoruz
+            window.setView(uiView);
             window.clear(acikPembe); 
 
             window.draw(menuTitle);  
@@ -468,7 +497,8 @@ sf::Sound loseSound(loseBuffer);
                 continue;
             }
 
-            window.setView(window.getDefaultView()); 
+            // Kedinin köşeye kaçmasını önlemek için sabit uiView verdik!
+            window.setView(uiView); 
             window.clear(sf::Color::Black); 
 
             sf::FloatRect goBounds = gameOverSprite.getLocalBounds();
@@ -510,7 +540,7 @@ sf::Sound loseSound(loseBuffer);
                 continue;
             }
 
-            window.setView(window.getDefaultView()); 
+            window.setView(uiView); 
             if (confettis.size() < 150) {
                 Confetti c; c.shape.setSize(sf::Vector2f(9.0f, 9.0f)); 
                 c.shape.setFillColor(confettiColors[std::rand() % confettiColors.size()]);
@@ -713,11 +743,11 @@ sf::Sound loseSound(loseBuffer);
             } else i++;
         }
 
-        std::string uiStr = "LEVEL: " + std::to_string(currentLevel) + "\n" + "SCORE: " + std::to_string(score);
-        uiText.setString(uiStr); uiText.setPosition(sf::Vector2f(camera.getCenter().x - 380.0f, 20.0f));
-
         // --- RENDER (EKRANA ÇİZİM) ALANI ---
         window.clear(sf::Color::Black); 
+        
+        // 1. Oyun Alanı Çizimleri (Kamera Açısı Aktif)
+        window.setView(camera);
         if (hasBg && bgWidth > 0.0f) { window.draw(bgSprite1); window.draw(bgSprite2); }   
         
         for (const auto& tile : groundTiles) {
@@ -734,14 +764,21 @@ sf::Sound loseSound(loseBuffer);
         
         for (const auto& c : coins) if (!c.isCollected) window.draw(*(c.sprite));
         player.draw(window); 
-        window.draw(uiText); 
 
         if (showWarning) {
             warningText.setPosition(sf::Vector2f(camera.getCenter().x - 240.0f, 260.0f)); window.draw(warningText);
         }
+
+        // 2. Arayüz (UI) Çizimleri (Sabit Görünüm Aktif - Kaymayı Önler)
+        window.setView(uiView);
+        uiText.setString("LEVEL: " + std::to_string(currentLevel) + "\n" + "SCORE: " + std::to_string(score));
+        uiText.setPosition(sf::Vector2f(20.0f, 20.0f));
+        window.draw(uiText); 
+
         if (hasHeartImg) {
             for (int i = 0; i < health; i++) {
-                heartSprite.setPosition(sf::Vector2f((camera.getCenter().x - 380.0f) + (i * 38.0f), 94.0f)); window.draw(heartSprite);
+                heartSprite.setPosition(sf::Vector2f(20.0f + (i * 38.0f), 94.0f)); 
+                window.draw(heartSprite);
             }
         }
         window.display();           
