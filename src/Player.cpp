@@ -1,78 +1,68 @@
 #include "Player.hpp"
-#include <iostream>
 
 Player::Player(const sf::Vector2f& size, const sf::Vector2f& position) {
-    if (!texture.loadFromFile("assets/karakter.jpg")) {
-        std::cout << "HATA: assets/karakter.jpg yuklenemedi!" << std::endl;
+    if (m_texture.loadFromFile("assets/karakter.jpg")) {
+        sprite = new sf::Sprite(m_texture);
+        
+        // Karakterin ayak tabanının tam orta noktasını merkez (orijin) alıyoruz
+        sprite->setOrigin(sf::Vector2f(111.0f, 375.0f));
+        
+        // Karakter boyutunu sahneye kibar ve dengeli oturtmak için sabit ölçek
+        sprite->setScale(sf::Vector2f(0.35f, 0.35f));
+    } else {
+        sprite = nullptr;
     }
 
-    sprite = new sf::Sprite(texture);
-    
-    // Orijinal resim boyutları
-    frameWidth = texture.getSize().x / 3.0f;
-    frameHeight = texture.getSize().y;
-
-    currentFrame = 0; 
-    isFacingLeft = false;
-
-    frameRect = sf::IntRect(sf::Vector2i(0, 0), sf::Vector2i(frameWidth, frameHeight));
-    sprite->setTextureRect(frameRect);
-
-    // En-boy oranına göre ölçekleme
-    float targetWidth = size.x;   
-    float targetHeight = size.y;  
-
-    float scaleX = targetWidth / frameWidth;
-    float scaleY = targetHeight / frameHeight;
-    sprite->setScale(sf::Vector2f(scaleX, scaleY));
-
-    sprite->setPosition(position);
-    bounds = sf::FloatRect(position, sf::Vector2f(targetWidth, targetHeight));
+    bounds.size = size;
+    bounds.position = position;
 }
 
 Player::~Player() {
-    delete sprite;
+    if (sprite) {
+        delete sprite;
+    }
 }
 
-void Player::update(bool moveLeft, bool moveRight, bool firePressed) {
-    if (firePressed) {
-        currentFrame = 2; 
-    } else if (moveLeft || moveRight) {
-        currentFrame = 1; 
-    } else {
-        currentFrame = 0; 
-    }
+void Player::update(bool moveLeft, bool moveRight, bool isFiring) {
+    if (sprite) {
+        sprite->setPosition(bounds.position);
 
-    if (moveLeft) {
-        isFacingLeft = true;
-    } else if (moveRight) {
-        isFacingLeft = false;
+        if (isFiring) {
+            // Ateş etme karesi: Tam genişlik (X: 444, Genişlik: 222)
+            sprite->setTextureRect(sf::IntRect(sf::Vector2i(444, 0), sf::Vector2i(222, 375)));
+        } 
+        else if (moveLeft || moveRight) {
+            // KOŞMA DÜZELTMESİ: 
+            // Yan kareden silah/ateş sızmaması için X koordinatını 222 yerine 215'e çekiyoruz 
+            // ve genişliği 205 piksel olarak daraltıyoruz.
+            sprite->setTextureRect(sf::IntRect(sf::Vector2i(215, 0), sf::Vector2i(205, 375)));
+            
+            if (moveLeft) {
+                sprite->setScale(sf::Vector2f(-0.35f, 0.35f)); 
+            } else {
+                sprite->setScale(sf::Vector2f(0.35f, 0.35f));  
+            }
+        } 
+        else {
+            // Sabit durma karesi (X: 0, Genişlik: 215)
+            sprite->setTextureRect(sf::IntRect(sf::Vector2i(0, 0), sf::Vector2i(215, 375)));
+        }
     }
-
-    // --- KESİN ÇÖZÜM: TAŞMA PAYI İYİCE ARTIRILDI ---
-    // Yan karedeki efektler kesinlikle gözükmesin diye genişliği 35 piksel daraltıyoruz
-    int rectX = currentFrame * frameWidth;
-    int safeWidth = frameWidth - 35; 
-    
-    if (isFacingLeft) {
-        frameRect = sf::IntRect(sf::Vector2i(rectX + safeWidth, 0), sf::Vector2i(-safeWidth, frameHeight));
-    } else {
-        frameRect = sf::IntRect(sf::Vector2i(rectX, 0), sf::Vector2i(safeWidth, frameHeight));
-    }
-    
-    sprite->setTextureRect(frameRect);
-    bounds.position = sprite->getPosition();
-}
-
-void Player::draw(sf::RenderWindow& window) {
-    window.draw(*sprite); 
 }
 
 sf::FloatRect Player::getBounds() const {
     return bounds;
 }
 
-void Player::resetPosition(const sf::Vector2f& newPos) {
-    sprite->setPosition(newPos);
-    bounds.position = newPos; 
+void Player::resetPosition(const sf::Vector2f& position) {
+    bounds.position = position;
+    if (sprite) {
+        sprite->setPosition(position);
+    }
+}
+
+void Player::draw(sf::RenderWindow& window) {
+    if (sprite) {
+        window.draw(*sprite);
+    }
 }
